@@ -1,0 +1,5 @@
+{
+  "name": "Eng. Tech. YIC/JIC",
+  "description": "A web application that registers college graduates and, after analyzing their uploaded graduation certificate using Gemini, directs them to their specific alumni group.",
+  "requestFramePermissions": []
+}
