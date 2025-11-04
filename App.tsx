@@ -9,6 +9,7 @@ import AdminDashboard from './components/AdminDashboard';
 import AdminLogin from './components/AdminLogin';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorDisplay from './components/ErrorDisplay';
+import ConfigurationError from './components/ConfigurationError';
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<AppStatus>(AppStatus.FORM);
@@ -69,8 +70,12 @@ const App: React.FC = () => {
 
       } catch (error) {
         console.error('Error fetching data:', error);
-        setErrorMessage(error.message || 'Could not load application settings. Please check your connection and refresh.');
-        setStatus(AppStatus.ERROR);
+        if (error.message && error.message.includes('KV environment variables are not set')) {
+          setStatus(AppStatus.CONFIG_ERROR);
+        } else {
+          setErrorMessage(error.message || 'Could not load application settings. Please check your connection and refresh.');
+          setStatus(AppStatus.ERROR);
+        }
       } finally {
         setIsLoading(false);
       }
@@ -241,6 +246,8 @@ const App: React.FC = () => {
                 />;
       case AppStatus.ERROR:
         return <ErrorDisplay message={errorMessage} onBack={resetApp} themeConfig={themeConfig} />;
+      case AppStatus.CONFIG_ERROR:
+        return <ConfigurationError />;
       default:
         return <GraduateForm colleges={colleges} onSubmit={handleSubmit} formFields={formFields} themeConfig={themeConfig} />;
     }
@@ -272,7 +279,7 @@ const App: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a1 1 0 00-2 0v7.268a2 2 0 000 3.464V16a1 1 0 102 0v-1.268a2 2 0 000-3.464V4zM11 4a1 1 0 10-2 0v1.268a2 2 0 000 3.464V16a1 1 0 102 0V8.732a2 2 0 000-3.464V4zM16 3a1 1 0 011 1v7.268a2 2 0 010 3.464V16a1 1 0 11-2 0v-1.268a2 2 0 010-3.464V4a1 1 0 011-1z" /></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="http://www.w3.org/2000/svg" fill="currentColor"><path d="M5 4a1 1 0 00-2 0v7.268a2 2 0 000 3.464V16a1 1 0 102 0v-1.268a2 2 0 000-3.464V4zM11 4a1 1 0 10-2 0v1.268a2 2 0 000 3.464V16a1 1 0 102 0V8.732a2 2 0 000-3.464V4zM16 3a1 1 0 011 1v7.268a2 2 0 010 3.464V16a1 1 0 11-2 0v-1.268a2 2 0 010-3.464V4a1 1 0 011-1z" /></svg>
                   Admin Panel
                 </>
               )}

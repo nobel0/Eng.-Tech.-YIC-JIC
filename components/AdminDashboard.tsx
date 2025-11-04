@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { College, ThemeConfig, FormField, Submission } from '../types';
 import FormFieldEditor from './FormFieldEditor';
 import SubmissionHistory from './SubmissionHistory';
+import ServerStatus from './ServerStatus';
 
 interface AdminDashboardProps {
   colleges: College[];
@@ -14,13 +15,13 @@ interface AdminDashboardProps {
   setAdminPassword: (newPassword: string) => boolean;
 }
 
-type AdminTab = 'Submissions' | 'Design' | 'Fields' | 'Colleges' | 'Settings';
+type AdminTab = 'Status' | 'Submissions' | 'Design' | 'Fields' | 'Colleges' | 'Settings';
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
     colleges, themeConfig, formFields, submissions, 
     onSave, onClearSubmissions, setAdminPassword
 }) => {
-  const [activeTab, setActiveTab] = useState<AdminTab>('Submissions');
+  const [activeTab, setActiveTab] = useState<AdminTab>('Status');
   
   // Local state for editing to enable explicit saving
   const [localThemeConfig, setLocalThemeConfig] = useState<ThemeConfig>(themeConfig);
@@ -169,6 +170,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const renderTabContent = () => {
     switch(activeTab) {
+        case 'Status':
+            return <ServerStatus />;
         case 'Submissions':
             return <SubmissionHistory submissions={submissions} onClearSubmissions={onClearSubmissions} />;
         case 'Design':
@@ -308,7 +311,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       <h2 className="text-2xl font-bold text-slate-800 text-center">Admin Dashboard</h2>
       
       <div className="border-b border-slate-200">
-        <nav className="-mb-px flex justify-center space-x-2 sm:space-x-4" aria-label="Tabs">
+        <nav className="-mb-px flex flex-wrap justify-center gap-2 sm:gap-4" aria-label="Tabs">
+            <TabButton tabName="Status" />
             <TabButton tabName="Submissions" />
             <TabButton tabName="Design" />
             <TabButton tabName="Fields" />
