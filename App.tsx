@@ -10,11 +10,6 @@ import AdminLogin from './components/AdminLogin';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorDisplay from './components/ErrorDisplay';
 
-const getAdminPassword = (): string => {
-  // Use environment variable as the single source of truth for the password on the server.
-  return process.env.ADMIN_PASSWORD || 'admin123';
-};
-
 const App: React.FC = () => {
   const [status, setStatus] = useState<AppStatus>(AppStatus.FORM);
   const [isLoading, setIsLoading] = useState(true);
@@ -184,14 +179,29 @@ const App: React.FC = () => {
     setShowAdminLogin(true);
   };
 
-  const handleAdminLogin = (password: string) => {
-    const adminPassword = getAdminPassword();
-    if (password === adminPassword) {
-      setStatus(AppStatus.ADMIN_PANEL);
-      setShowAdminLogin(false);
-    } else {
-      alert("Incorrect password.");
-      setShowAdminLogin(false);
+  const handleAdminLogin = async (password: string) => {
+    try {
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: password })
+        });
+        
+        if (res.ok) {
+            const data = await res.json();
+            if (data.success) {
+                setStatus(AppStatus.ADMIN_PANEL);
+                setShowAdminLogin(false);
+            }
+        } else {
+             const errorData = await res.json();
+             alert(errorData.error || "Incorrect password.");
+             setShowAdminLogin(false);
+        }
+    } catch (error) {
+        console.error("Login failed:", error);
+        alert("An error occurred during login. Please try again.");
+        setShowAdminLogin(false);
     }
   };
 
