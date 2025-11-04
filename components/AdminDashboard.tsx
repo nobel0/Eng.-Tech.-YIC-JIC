@@ -6,24 +6,19 @@ import SubmissionHistory from './SubmissionHistory';
 
 interface AdminDashboardProps {
   colleges: College[];
-  setColleges: React.Dispatch<React.SetStateAction<College[]>>;
   themeConfig: ThemeConfig;
-  setThemeConfig: React.Dispatch<React.SetStateAction<ThemeConfig>>;
   formFields: FormField[];
-  setFormFields: React.Dispatch<React.SetStateAction<FormField[]>>;
   submissions: Submission[];
-  setSubmissions: React.Dispatch<React.SetStateAction<Submission[]>>;
+  onSave: (newSettings: { themeConfig: ThemeConfig, colleges: College[], formFields: FormField[] }) => Promise<void>;
+  onClearSubmissions: () => Promise<void>;
   setAdminPassword: (newPassword: string) => boolean;
 }
 
 type AdminTab = 'Submissions' | 'Design' | 'Fields' | 'Colleges' | 'Settings';
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
-    colleges, setColleges, 
-    themeConfig, setThemeConfig,
-    formFields, setFormFields,
-    submissions, setSubmissions,
-    setAdminPassword
+    colleges, themeConfig, formFields, submissions, 
+    onSave, onClearSubmissions, setAdminPassword
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('Submissions');
   
@@ -32,11 +27,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [localColleges, setLocalColleges] = useState<College[]>(colleges);
   const [localFormFields, setLocalFormFields] = useState<FormField[]>(formFields);
 
-  // State for save confirmation message
-  const [showSaveSuccess, setShowSaveSuccess] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
 
   // States for password change form
-  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordMessage, setPasswordMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -52,12 +45,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const hasUnsavedChanges = JSON.stringify({ themeConfig: localThemeConfig, colleges: localColleges, formFields: localFormFields }) !==
                             JSON.stringify({ themeConfig, colleges, formFields });
 
-  const handleSaveChanges = () => {
-    setThemeConfig(localThemeConfig);
-    setColleges(localColleges);
-    setFormFields(localFormFields);
-    setShowSaveSuccess(true);
-    setTimeout(() => setShowSaveSuccess(false), 2500);
+  const handleSaveChanges = async () => {
+    setSaveStatus('saving');
+    try {
+        await onSave({
+            themeConfig: localThemeConfig,
+            colleges: localColleges,
+            formFields: localFormFields
+        });
+        setSaveStatus('success');
+        setTimeout(() => setSaveStatus('idle'), 2500);
+    } catch (error) {
+        setSaveStatus('error');
+        alert(`Failed to save changes: ${error.message}`);
+    }
   };
 
   const handleDiscardChanges = () => {
@@ -68,7 +69,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handlePasswordUpdate = () => {
     setPasswordMessage(null);
-
     if (!newPassword || !confirmPassword) {
       setPasswordMessage({ text: "Please fill in all password fields.", type: 'error' });
       return;
@@ -77,22 +77,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setPasswordMessage({ text: "New passwords do not match.", type: 'error' });
       return;
     }
-
-    const currentAdminPassword = localStorage.getItem('admin_password') || 'admin123';
-    if (currentPassword !== currentAdminPassword) {
-      setPasswordMessage({ text: "Incorrect current password.", type: 'error' });
-      return;
-    }
-
-    const success = setAdminPassword(newPassword);
-    if (success) {
-      setPasswordMessage({ text: "Password updated successfully!", type: 'success' });
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-    } else {
-      setPasswordMessage({ text: "Failed to save the new password. Please try again.", type: 'error' });
-    }
+    // This function now just shows an alert, as passwords must be changed in Vercel settings.
+    setAdminPassword(newPassword);
   };
 
   // State for Colleges tab
@@ -184,7 +170,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const renderTabContent = () => {
     switch(activeTab) {
         case 'Submissions':
-            return <SubmissionHistory submissions={submissions} setSubmissions={setSubmissions} />;
+            return <SubmissionHistory submissions={submissions} onClearSubmissions={onClearSubmissions} />;
         case 'Design':
             return (
                 <div className="space-y-6">
@@ -275,25 +261,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <h3 className="text-xl font-bold text-slate-800 text-center">Security Settings</h3>
                     <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-4">
                         <h4 className="text-lg font-semibold text-slate-700">Change Admin Password</h4>
-                        <div>
-                            <label htmlFor="currentPassword" className="block text-sm font-medium text-slate-700">Current Password</label>
-                            <input type="password" name="currentPassword" id="currentPassword" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="mt-1 input-field"/>
-                        </div>
-                        <div>
-                            <label htmlFor="newPassword" className="block text-sm font-medium text-slate-700">New Password</label>
-                            <input type="password" name="newPassword" id="newPassword" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="mt-1 input-field"/>
-                        </div>
-                        <div>
-                            <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700">Confirm New Password</label>
-                            <input type="password" name="confirmPassword" id="confirmPassword" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="mt-1 input-field"/>
-                        </div>
-                        {passwordMessage && (
-                            <p className={`text-sm ${passwordMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
-                                {passwordMessage.text}
-                            </p>
-                        )}
-                        <div className="flex justify-end">
-                            <button onClick={handlePasswordUpdate} className="btn-primary">Update Password</button>
+                         <div className="text-sm p-4 bg-blue-50 text-blue-800 border border-blue-200 rounded-md">
+                            To change the admin password, please update the <code>ADMIN_PASSWORD</code> environment variable in your Vercel project settings.
                         </div>
                     </div>
                 </div>
@@ -307,28 +276,35 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     </button>
   );
 
+  const SaveBar = () => {
+    if (saveStatus === 'success') {
+        return (
+            <div className="sticky top-4 bg-green-500 text-white p-3 rounded-lg shadow-lg z-10 text-center mb-4 transition-all duration-300 ease-in-out">
+                Changes saved successfully!
+            </div>
+        )
+    }
+    if (hasUnsavedChanges) {
+        return (
+             <div className="sticky top-4 bg-indigo-600 text-white p-3 rounded-lg shadow-lg z-10 flex justify-between items-center mb-4 transition-all duration-300 ease-in-out">
+                <span className="font-medium">You have unsaved changes.</span>
+                <div className="flex gap-3">
+                    <button onClick={handleDiscardChanges} className="py-1 px-3 rounded-md text-sm font-medium bg-white bg-opacity-20 hover:bg-opacity-30 transition-colors">
+                    Discard
+                    </button>
+                    <button onClick={handleSaveChanges} disabled={saveStatus === 'saving'} className="py-1 px-3 rounded-md text-sm font-medium bg-white text-indigo-600 hover:bg-indigo-50 transition-colors disabled:opacity-50">
+                    {saveStatus === 'saving' ? 'Saving...' : 'Save Changes'}
+                    </button>
+                </div>
+            </div>
+        )
+    }
+    return null;
+  }
+
   return (
     <div className="space-y-8 relative">
-       {hasUnsavedChanges && (
-        <div className="sticky top-4 bg-indigo-600 text-white p-3 rounded-lg shadow-lg z-10 flex justify-between items-center mb-4 transition-all duration-300 ease-in-out">
-          <span className="font-medium">You have unsaved changes.</span>
-          <div className="flex gap-3">
-            <button onClick={handleDiscardChanges} className="py-1 px-3 rounded-md text-sm font-medium bg-white bg-opacity-20 hover:bg-opacity-30 transition-colors">
-              Discard
-            </button>
-            <button onClick={handleSaveChanges} className="py-1 px-3 rounded-md text-sm font-medium bg-white text-indigo-600 hover:bg-indigo-50 transition-colors">
-              Save Changes
-            </button>
-          </div>
-        </div>
-      )}
-
-      {showSaveSuccess && !hasUnsavedChanges && (
-         <div className="sticky top-4 bg-green-500 text-white p-3 rounded-lg shadow-lg z-10 text-center mb-4 transition-all duration-300 ease-in-out">
-            Changes saved successfully!
-        </div>
-      )}
-
+       <SaveBar />
       <h2 className="text-2xl font-bold text-slate-800 text-center">Admin Dashboard</h2>
       
       <div className="border-b border-slate-200">
@@ -341,7 +317,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </nav>
       </div>
 
-      <div className="bg-white p-6 rounded-lg border border-slate-200">
+      <div className="bg-slate-50 p-6 rounded-lg border border-slate-200">
         {renderTabContent()}
       </div>
 

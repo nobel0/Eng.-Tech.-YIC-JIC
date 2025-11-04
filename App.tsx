@@ -10,87 +10,78 @@ import AdminLogin from './components/AdminLogin';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorDisplay from './components/ErrorDisplay';
 
-// Helper function to safely load and parse from localStorage
-const loadStateFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
-  try {
-    const storedValue = localStorage.getItem(key);
-    if (storedValue) {
-      return JSON.parse(storedValue) as T;
-    }
-  } catch (error) {
-    console.error(`Failed to load or parse '${key}' from localStorage`, error);
-  }
-  return defaultValue;
-};
-
-// Helper function to get the current admin password
 const getAdminPassword = (): string => {
-  try {
-    const storedPassword = localStorage.getItem('admin_password');
-    // Use stored password if it exists, otherwise fall back to default
-    return storedPassword || process.env.ADMIN_PASSWORD || 'admin123';
-  } catch (error) {
-    console.error("Failed to read admin password from localStorage", error);
-    // Fallback in case of error
-    return process.env.ADMIN_PASSWORD || 'admin123';
-  }
+  // Use environment variable as the single source of truth for the password on the server.
+  return process.env.ADMIN_PASSWORD || 'admin123';
 };
-
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<AppStatus>(AppStatus.FORM);
-  
-  // Use lazy initialization to load from localStorage only once on component mount
-  const [colleges, setColleges] = useState<College[]>(() =>
-    loadStateFromLocalStorage('colleges', INITIAL_COLLEGES)
-  );
-  const [themeConfig, setThemeConfig] = useState<ThemeConfig>(() =>
-    loadStateFromLocalStorage('themeConfig', INITIAL_THEME_CONFIG)
-  );
-  const [formFields, setFormFields] = useState<FormField[]>(() =>
-    loadStateFromLocalStorage('formFields', INITIAL_FORM_FIELDS)
-  );
-  const [submissions, setSubmissions] = useState<Submission[]>(() =>
-    loadStateFromLocalStorage('submissions', [])
-  );
+  const [isLoading, setIsLoading] = useState(true);
+
+  // State is now initialized with defaults, then fetched from the server.
+  const [colleges, setColleges] = useState<College[]>(INITIAL_COLLEGES);
+  const [themeConfig, setThemeConfig] = useState<ThemeConfig>(INITIAL_THEME_CONFIG);
+  const [formFields, setFormFields] = useState<FormField[]>(INITIAL_FORM_FIELDS);
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
 
   const [matchedCollege, setMatchedCollege] = useState<College | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [showAdminLogin, setShowAdminLogin] = useState(false);
-  
-  // useEffect hooks for SAVING data to localStorage when state changes.
-  // Splitting them ensures that an error in one doesn't stop others from saving.
-  useEffect(() => {
-    try {
-      localStorage.setItem('colleges', JSON.stringify(colleges));
-    } catch (error) {
-      console.error("Failed to save 'colleges' to localStorage", error);
-    }
-  }, [colleges]);
 
-  useEffect(() => {
+  // A robust error handler for fetch requests
+  const handleFetchError = async (response: Response, context: string): Promise<void> => {
+    const errorText = await response.text();
+    let errorMessage = `Error with ${context}. Status: ${response.status}.`;
     try {
-      localStorage.setItem('themeConfig', JSON.stringify(themeConfig));
-    } catch (error) {
-      console.error("Failed to save 'themeConfig' to localStorage", error);
+      // Try to parse as JSON for a structured error from our API
+      const errorJson = JSON.parse(errorText);
+      errorMessage = errorJson.error || errorMessage;
+    } catch (e) {
+      // If it's not JSON, it's likely an error from Vercel infrastructure.
+      errorMessage += ` Response: ${errorText.substring(0, 200)}...`;
     }
-  }, [themeConfig]);
+    throw new Error(errorMessage);
+  };
 
-  useEffect(() => {
-    try {
-      localStorage.setItem('formFields', JSON.stringify(formFields));
-    } catch (error) {
-      console.error("Failed to save 'formFields' to localStorage", error);
-    }
-  }, [formFields]);
 
+  // Fetch all application data from the server on initial load.
   useEffect(() => {
-    try {
-      localStorage.setItem('submissions', JSON.stringify(submissions));
-    } catch (error) {
-      console.error("Failed to save 'submissions' to localStorage", error);
-    }
-  }, [submissions]);
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        // Fetch settings (theme, colleges, fields)
+        const settingsRes = await fetch('/api/settings');
+        if (!settingsRes.ok) {
+            await handleFetchError(settingsRes, "settings fetch");
+        }
+        const settingsData = await settingsRes.json();
+        if (settingsData) {
+            setThemeConfig(settingsData.themeConfig || INITIAL_THEME_CONFIG);
+            setColleges(settingsData.colleges || INITIAL_COLLEGES);
+            setFormFields(settingsData.formFields || INITIAL_FORM_FIELDS);
+        } else {
+             console.log("No settings found in database, using initial defaults.");
+        }
+
+        // Fetch submissions
+        const submissionsRes = await fetch('/api/submissions');
+        if (!submissionsRes.ok) {
+            await handleFetchError(submissionsRes, "submissions fetch");
+        }
+        const subsData = await submissionsRes.json();
+        setSubmissions(subsData || []);
+
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        setErrorMessage(error.message || 'Could not load application settings. Please check your connection and refresh.');
+        setStatus(AppStatus.ERROR);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   const handleSubmit = async (formData: FormData, certificateBase64: string, mimeType: string) => {
     setStatus(AppStatus.PROCESSING);
@@ -110,6 +101,18 @@ const App: React.FC = () => {
             formData: formData,
             matchedCollegeName: foundCollege.name,
           };
+
+          // Save new submission to the server
+          const res = await fetch('/api/submissions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newSubmission),
+          });
+          
+          if (!res.ok) {
+            await handleFetchError(res, "submission save");
+          }
+
           setSubmissions(prev => [newSubmission, ...prev]);
           setMatchedCollege(foundCollege);
           setStatus(AppStatus.SUCCESS);
@@ -128,12 +131,45 @@ const App: React.FC = () => {
         setStatus(AppStatus.ERROR);
       }
     } catch (error) {
-      console.error('Error processing certificate:', error);
-      setErrorMessage('An unexpected error occurred while analyzing your certificate. Please try again later.');
+      console.error('Error processing submission:', error);
+      setErrorMessage(error.message || 'An unexpected error occurred. Please try again later.');
       setStatus(AppStatus.ERROR);
     }
   };
 
+  const handleSaveSettings = async (newSettings: {themeConfig: ThemeConfig, colleges: College[], formFields: FormField[]}) => {
+     try {
+        const res = await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newSettings)
+        });
+        if (!res.ok) {
+           await handleFetchError(res, "settings save");
+        }
+        // Update local state to match saved state
+        setThemeConfig(newSettings.themeConfig);
+        setColleges(newSettings.colleges);
+        setFormFields(newSettings.formFields);
+     } catch (error) {
+        console.error("Failed to save settings:", error);
+        throw error; // Re-throw to be caught by the calling component
+     }
+  };
+
+  const handleClearSubmissions = async () => {
+    try {
+        const res = await fetch('/api/submissions', { method: 'DELETE' });
+        if (!res.ok) {
+            await handleFetchError(res, "clear submissions");
+        }
+        setSubmissions([]);
+    } catch(error) {
+        console.error("Failed to clear submissions:", error);
+        throw error; // Re-throw
+    }
+  };
+  
   const resetApp = () => {
     setStatus(AppStatus.FORM);
     setMatchedCollege(null);
@@ -159,17 +195,18 @@ const App: React.FC = () => {
     }
   };
 
+  // Admin password is now set via environment variables, so this is no longer needed.
+  // This could be updated to call a secure API to change the env var, but that is more complex.
   const handleSetAdminPassword = (newPassword: string): boolean => {
-    try {
-      localStorage.setItem('admin_password', newPassword);
-      return true;
-    } catch (error) {
-      console.error("Failed to save new admin password to localStorage", error);
-      return false;
-    }
+    alert("Please update the ADMIN_PASSWORD environment variable in your Vercel project settings.");
+    return false;
   };
   
   const renderContent = () => {
+    if (isLoading) {
+        return <div className="flex justify-center items-center p-10"><LoadingSpinner themeColor={themeConfig.primaryColor}/></div>
+    }
+
     switch (status) {
       case AppStatus.FORM:
         return <GraduateForm 
@@ -185,13 +222,11 @@ const App: React.FC = () => {
       case AppStatus.ADMIN_PANEL:
         return <AdminDashboard 
                   colleges={colleges} 
-                  setColleges={setColleges}
                   themeConfig={themeConfig}
-                  setThemeConfig={setThemeConfig}
                   formFields={formFields}
-                  setFormFields={setFormFields}
                   submissions={submissions}
-                  setSubmissions={setSubmissions}
+                  onSave={handleSaveSettings}
+                  onClearSubmissions={handleClearSubmissions}
                   setAdminPassword={handleSetAdminPassword}
                 />;
       case AppStatus.ERROR:

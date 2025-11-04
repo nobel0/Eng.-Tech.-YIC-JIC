@@ -4,13 +4,17 @@ import { Submission } from '../types';
 
 interface SubmissionHistoryProps {
   submissions: Submission[];
-  setSubmissions: React.Dispatch<React.SetStateAction<Submission[]>>;
+  onClearSubmissions: () => Promise<void>;
 }
 
-const SubmissionHistory: React.FC<SubmissionHistoryProps> = ({ submissions, setSubmissions }) => {
-  const handleClearHistory = () => {
+const SubmissionHistory: React.FC<SubmissionHistoryProps> = ({ submissions, onClearSubmissions }) => {
+  const handleClearHistory = async () => {
     if (window.confirm('Are you sure you want to delete all submission records? This action cannot be undone.')) {
-      setSubmissions([]);
+      try {
+        await onClearSubmissions();
+      } catch (error) {
+        alert(`Failed to clear submission history: ${error.message}`);
+      }
     }
   };
 
@@ -34,7 +38,7 @@ const SubmissionHistory: React.FC<SubmissionHistoryProps> = ({ submissions, setS
         )}
       </div>
       {submissions.length === 0 ? (
-        <div className="text-center py-12">
+        <div className="text-center py-12 bg-white">
             <svg className="mx-auto h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
@@ -44,7 +48,7 @@ const SubmissionHistory: React.FC<SubmissionHistoryProps> = ({ submissions, setS
       ) : (
         <ul className="space-y-4">
           {submissions.map(submission => (
-            <li key={submission.id} className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+            <li key={submission.id} className="bg-white p-4 rounded-lg border border-slate-200">
               <div className="flex justify-between items-start flex-wrap gap-2">
                   <p className="font-semibold text-slate-800">{submission.formData.name || 'N/A'}</p>
                   <p className="text-sm text-slate-500 flex-shrink-0">{submission.timestamp}</p>
