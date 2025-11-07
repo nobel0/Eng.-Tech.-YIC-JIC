@@ -8,7 +8,7 @@ interface ServerStatusState {
   geminiApiKeySet: boolean;
 }
 
-const StatusRow: React.FC<{ label: string; isOk: boolean; fixInstruction: string; }> = ({ label, isOk, fixInstruction }) => (
+const StatusRow: React.FC<{ label: string; isOk: boolean; fixInstruction: React.ReactNode; }> = ({ label, isOk, fixInstruction }) => (
     <div className={`p-4 rounded-lg flex items-start gap-4 ${isOk ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border`}>
         <div className="flex-shrink-0">
             {isOk ? (
@@ -19,9 +19,9 @@ const StatusRow: React.FC<{ label: string; isOk: boolean; fixInstruction: string
         </div>
         <div>
             <h4 className="font-semibold text-slate-800">{label}</h4>
-            <p className={`text-sm ${isOk ? 'text-slate-600' : 'text-red-700'}`}>
+            <div className={`text-sm ${isOk ? 'text-slate-600' : 'text-red-700'}`}>
                 {isOk ? 'Configured correctly.' : fixInstruction}
-            </p>
+            </div>
         </div>
     </div>
 );
@@ -91,7 +91,12 @@ const ServerStatus: React.FC = () => {
                 <StatusRow 
                     label="Vercel KV Database"
                     isOk={status.kvStoreConnected}
-                    fixInstruction="Go to the 'Storage' tab in your Vercel project dashboard and connect a KV store."
+                    fixInstruction={
+                      <>
+                        Go to the 'Storage' tab in your Vercel project dashboard to connect a KV store.
+                        <strong className="block mt-1">IMPORTANT: After connecting, you must trigger a new deployment for the change to take effect.</strong>
+                      </>
+                    }
                 />
                 <StatusRow 
                     label="Gemini API Key"
