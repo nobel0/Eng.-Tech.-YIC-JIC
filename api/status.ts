@@ -17,14 +17,15 @@ export default async function handler(req: Request) {
   const {
     KV_REST_API_URL,
     KV_REST_API_TOKEN,
-    REDIS_URL, // Vercel Redis can provide this instead of KV_* vars
+    UPSTASH_REDIS_REST_URL,
+    UPSTASH_REDIS_REST_TOKEN,
     ADMIN_PASSWORD,
     API_KEY,
   } = process.env;
 
   const status = {
-    // A valid connection exists if either the KV variables OR the Redis URL is present.
-    kvStoreConnected: !!((KV_REST_API_URL && KV_REST_API_TOKEN) || REDIS_URL),
+    // A valid connection exists if either the KV variables OR the Redis (Upstash) variables are present.
+    kvStoreConnected: !!((KV_REST_API_URL && KV_REST_API_TOKEN) || (UPSTASH_REDIS_REST_URL && UPSTASH_REDIS_REST_TOKEN)),
     adminPasswordSet: !!ADMIN_PASSWORD,
     geminiApiKeySet: !!API_KEY,
   };

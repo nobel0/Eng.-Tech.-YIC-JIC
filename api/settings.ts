@@ -8,20 +8,18 @@ export const config = {
   runtime: 'edge', // Using the Edge runtime for performance
 };
 
-// This function manually creates the DB client to support both
-// Vercel KV (using KV_REST_API_URL) and Vercel Redis (using REDIS_URL).
+// This function creates the DB client, supporting both Vercel KV and Vercel Redis.
 function getDbClient(): VercelKV {
   if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
     return createClient({
       url: process.env.KV_REST_API_URL,
       token: process.env.KV_REST_API_TOKEN,
     });
-    // FIX: The createClient function from `@vercel/kv` requires a 'token' property, which was missing for the Vercel Redis case.
-  } else if (process.env.REDIS_URL && process.env.REDIS_TOKEN) {
-    // For Vercel Redis, the URL and token are provided separately.
+  } else if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+    // For Vercel Redis, the variables from Upstash are used.
     return createClient({
-      url: process.env.REDIS_URL,
-      token: process.env.REDIS_TOKEN,
+      url: process.env.UPSTASH_REDIS_REST_URL,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN,
     });
   } else {
     // If neither is found, we cannot connect to a database.
