@@ -45,8 +45,13 @@ export default async function handler(req: Request) {
     }
   } catch (error) {
     console.error('API /api/submissions error:', error);
+    // The @vercel/kv library throws an error if connection variables are missing.
+    // This new, more generic message helps debug both KV and Redis connections.
     if (error.message && (error.message.includes('Missing required') || error.message.includes('invalid URL'))) {
-        return errorResponse('KV environment variables are not set correctly. Please check your Vercel project settings.', 500);
+        return errorResponse(
+          'Database connection failed. Please ensure your Vercel project has a KV or Redis store connected and the correct environment variables (e.g., KV_REST_API_URL or REDIS_URL) are available.', 
+          500
+        );
     }
     return errorResponse(error.message, 500);
   }
