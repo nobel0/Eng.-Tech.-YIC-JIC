@@ -309,5 +309,6 @@ const App: React.FC = () => {
     </>
   );
 };
+// Triggering a new deployment after disconnecting the git
 
 export default App;
