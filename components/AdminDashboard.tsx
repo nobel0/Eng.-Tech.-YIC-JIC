@@ -99,6 +99,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const MAX_SIZE_KB = 500;
+      const MAX_SIZE_BYTES = MAX_SIZE_KB * 1024;
+      if (file.size > MAX_SIZE_BYTES) {
+        alert(`File is too large. Please upload a logo smaller than ${MAX_SIZE_KB} KB to avoid save errors.`);
+        e.target.value = ''; // Clear the file input
+        return;
+      }
+
       const reader = new FileReader();
       reader.onloadend = () => {
         setLocalThemeConfig(prev => ({ ...prev, logo: reader.result as string }));
@@ -192,6 +200,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <div>
                         <label className="block text-sm font-medium text-slate-700">Logo</label>
                         <input type="file" onChange={handleLogoUpload} accept="image/*" className="mt-1 block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100"/>
+                        <p className="text-xs text-slate-500 mt-1">Recommended: PNG or SVG under 500KB.</p>
                         {localThemeConfig.logo && <img src={localThemeConfig.logo} alt="logo preview" className="mt-4 h-16 w-auto border p-1 rounded-md"/>}
                     </div>
                 </div>
