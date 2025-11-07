@@ -2,11 +2,32 @@
 // This function will be deployed at the `/api/settings` endpoint.
 // It uses Vercel's KV (Key-Value) store to persist settings.
 
-import { kv } from '@vercel/kv';
+import { createClient, VercelKV } from '@vercel/kv';
 
 export const config = {
   runtime: 'edge', // Using the Edge runtime for performance
 };
+
+// This function manually creates the DB client to support both
+// Vercel KV (using KV_REST_API_URL) and Vercel Redis (using REDIS_URL).
+function getDbClient(): VercelKV {
+  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+    return createClient({
+      url: process.env.KV_REST_API_URL,
+      token: process.env.KV_REST_API_TOKEN,
+    });
+    // FIX: The createClient function from `@vercel/kv` requires a 'token' property, which was missing for the Vercel Redis case.
+  } else if (process.env.REDIS_URL && process.env.REDIS_TOKEN) {
+    // For Vercel Redis, the URL and token are provided separately.
+    return createClient({
+      url: process.env.REDIS_URL,
+      token: process.env.REDIS_TOKEN,
+    });
+  } else {
+    // If neither is found, we cannot connect to a database.
+    throw new Error('Database connection variables are not set. Please connect a Vercel KV or Redis store.');
+  }
+}
 
 export default async function handler(req: Request) {
   const errorResponse = (message: string, status: number) => {
@@ -17,6 +38,8 @@ export default async function handler(req: Request) {
   };
 
   try {
+    const kv = getDbClient(); // Get a configured client instance.
+
     if (req.method === 'GET') {
       const settings = await kv.get('settings');
       return new Response(JSON.stringify(settings), {
@@ -39,14 +62,10 @@ export default async function handler(req: Request) {
     }
   } catch (error) {
     console.error('API /api/settings error:', error);
-    // The @vercel/kv library throws an error if connection variables are missing.
-    // This new, more generic message helps debug both KV and Redis connections.
-    if (error.message && (error.message.includes('Missing required') || error.message.includes('invalid URL'))) {
-      return errorResponse(
-        'Database connection failed. Please ensure your Vercel project has a KV or Redis store connected and the correct environment variables (e.g., KV_REST_API_URL or REDIS_URL) are available.', 
-        500
-      );
-    }
-    return errorResponse(error.message, 500);
+    // Provide a clear, user-facing error message for connection issues.
+    return errorResponse(
+      `Database connection failed. ${error.message} Please ensure your Vercel project has a KV or Redis store connected and the environment variables are available. After connecting, a new deployment is required.`, 
+      500
+    );
   }
 }

@@ -12,16 +12,17 @@ interface AdminDashboardProps {
   submissions: Submission[];
   onSave: (newSettings: { themeConfig: ThemeConfig, colleges: College[], formFields: FormField[] }) => Promise<void>;
   onClearSubmissions: () => Promise<void>;
-  setAdminPassword: (newPassword: string) => boolean;
+  onSetupComplete: () => void;
+  initialTab: AdminTab;
 }
 
 type AdminTab = 'Status' | 'Submissions' | 'Design' | 'Fields' | 'Colleges' | 'Settings';
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
     colleges, themeConfig, formFields, submissions, 
-    onSave, onClearSubmissions, setAdminPassword
+    onSave, onClearSubmissions, onSetupComplete, initialTab
 }) => {
-  const [activeTab, setActiveTab] = useState<AdminTab>('Status');
+  const [activeTab, setActiveTab] = useState<AdminTab>(initialTab);
   
   // Local state for editing to enable explicit saving
   const [localThemeConfig, setLocalThemeConfig] = useState<ThemeConfig>(themeConfig);
@@ -30,17 +31,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
 
-  // States for password change form
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordMessage, setPasswordMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
-
   // Reset local state if the parent props change (e.g., after saving or discarding)
   useEffect(() => {
     setLocalThemeConfig(themeConfig);
     setLocalColleges(colleges);
     setLocalFormFields(formFields);
   }, [themeConfig, colleges, formFields]);
+  
+  // Set the initial tab
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
 
   // Check for any unsaved changes by comparing local state to original props
   const hasUnsavedChanges = JSON.stringify({ themeConfig: localThemeConfig, colleges: localColleges, formFields: localFormFields }) !==
@@ -66,20 +67,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setLocalThemeConfig(themeConfig);
     setLocalColleges(colleges);
     setLocalFormFields(formFields);
-  };
-
-  const handlePasswordUpdate = () => {
-    setPasswordMessage(null);
-    if (!newPassword || !confirmPassword) {
-      setPasswordMessage({ text: "Please fill in all password fields.", type: 'error' });
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPasswordMessage({ text: "New passwords do not match.", type: 'error' });
-      return;
-    }
-    // This function now just shows an alert, as passwords must be changed in Vercel settings.
-    setAdminPassword(newPassword);
   };
 
   // State for Colleges tab
@@ -179,7 +166,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const renderTabContent = () => {
     switch(activeTab) {
         case 'Status':
-            return <ServerStatus />;
+            return <ServerStatus onSetupComplete={onSetupComplete} />;
         case 'Submissions':
             return <SubmissionHistory submissions={submissions} onClearSubmissions={onClearSubmissions} />;
         case 'Design':

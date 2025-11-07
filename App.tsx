@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { College, AppStatus, FormData, ThemeConfig, FormField, Submission } from './types';
 import { INITIAL_COLLEGES, INITIAL_THEME_CONFIG, INITIAL_FORM_FIELDS } from './constants';
 import { analyzeCertificate } from './services/geminiService';
@@ -9,7 +9,6 @@ import AdminDashboard from './components/AdminDashboard';
 import AdminLogin from './components/AdminLogin';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorDisplay from './components/ErrorDisplay';
-import ConfigurationError from './components/ConfigurationError';
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<AppStatus>(AppStatus.FORM);
@@ -24,6 +23,7 @@ const App: React.FC = () => {
   const [matchedCollege, setMatchedCollege] = useState<College | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [isSetupComplete, setIsSetupComplete] = useState(false);
 
   // A robust error handler for fetch requests
   const handleFetchError = async (response: Response, context: string): Promise<void> => {
@@ -40,48 +40,73 @@ const App: React.FC = () => {
     throw new Error(errorMessage);
   };
 
+  const startupCheck = useCallback(async () => {
+    setIsLoading(true);
+    setErrorMessage(''); // Clear previous error messages on retry
+    try {
+      // 1. Check server status first
+      const statusRes = await fetch('/api/status');
+      if (!statusRes.ok) {
+        await handleFetchError(statusRes, "server status check");
+      }
+      const statusData = await statusRes.json();
+      
+      const setupOk = statusData.kvStoreConnected && statusData.geminiApiKeySet && statusData.adminPasswordSet;
+      setIsSetupComplete(setupOk);
+
+      if (!statusData.kvStoreConnected || !statusData.adminPasswordSet) {
+        // If critical configs are missing, go straight to the Admin Panel to fix them.
+        // No point in fetching data if the DB isn't connected.
+        setStatus(AppStatus.ADMIN_PANEL);
+        setIsLoading(false);
+        return;
+      }
+
+      // 2. DB is connected, proceed to fetch data
+      // Fetch settings (theme, colleges, fields)
+      const settingsRes = await fetch('/api/settings');
+      if (!settingsRes.ok) {
+          await handleFetchError(settingsRes, "settings fetch");
+      }
+      const settingsData = await settingsRes.json();
+      if (settingsData) {
+          setThemeConfig(settingsData.themeConfig || INITIAL_THEME_CONFIG);
+          setColleges(settingsData.colleges || INITIAL_COLLEGES);
+          setFormFields(settingsData.formFields || INITIAL_FORM_FIELDS);
+      } else {
+           console.log("No settings found in database, using initial defaults.");
+      }
+
+      // Fetch submissions
+      const submissionsRes = await fetch('/api/submissions');
+      if (!submissionsRes.ok) {
+          await handleFetchError(submissionsRes, "submissions fetch");
+      }
+      const subsData = await submissionsRes.json();
+      setSubmissions(subsData || []);
+      
+      // 3. Decide where to go. Form is only usable if API key is set.
+      if (!statusData.geminiApiKeySet) {
+          // Data is loaded, but API key is missing. Go to admin to fix.
+          setStatus(AppStatus.ADMIN_PANEL);
+      } else {
+          // Everything loaded and configured, set status to FORM
+          setStatus(AppStatus.FORM);
+      }
+
+    } catch (error) {
+      console.error('Error during application startup:', error);
+      setErrorMessage(error.message || 'An unexpected error occurred during startup.');
+      setStatus(AppStatus.ERROR);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []); // Empty dependency array as it has no external dependencies.
 
   // Fetch all application data from the server on initial load.
   useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        // Fetch settings (theme, colleges, fields)
-        const settingsRes = await fetch('/api/settings');
-        if (!settingsRes.ok) {
-            await handleFetchError(settingsRes, "settings fetch");
-        }
-        const settingsData = await settingsRes.json();
-        if (settingsData) {
-            setThemeConfig(settingsData.themeConfig || INITIAL_THEME_CONFIG);
-            setColleges(settingsData.colleges || INITIAL_COLLEGES);
-            setFormFields(settingsData.formFields || INITIAL_FORM_FIELDS);
-        } else {
-             console.log("No settings found in database, using initial defaults.");
-        }
-
-        // Fetch submissions
-        const submissionsRes = await fetch('/api/submissions');
-        if (!submissionsRes.ok) {
-            await handleFetchError(submissionsRes, "submissions fetch");
-        }
-        const subsData = await submissionsRes.json();
-        setSubmissions(subsData || []);
-
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        if (error.message && error.message.includes('KV environment variables are not set')) {
-          setStatus(AppStatus.CONFIG_ERROR);
-        } else {
-          setErrorMessage(error.message || 'Could not load application settings. Please check your connection and refresh.');
-          setStatus(AppStatus.ERROR);
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+    startupCheck();
+  }, [startupCheck]);
 
   const handleSubmit = async (formData: FormData, certificateBase64: string, mimeType: string) => {
     setStatus(AppStatus.PROCESSING);
@@ -171,14 +196,22 @@ const App: React.FC = () => {
   };
   
   const resetApp = () => {
-    setStatus(AppStatus.FORM);
+    if (isSetupComplete) {
+      setStatus(AppStatus.FORM);
+    } else {
+      // If setup is still not complete, return to the admin panel.
+      setStatus(AppStatus.ADMIN_PANEL);
+    }
     setMatchedCollege(null);
     setErrorMessage('');
   };
 
   const handleAdminClick = () => {
     if (status === AppStatus.ADMIN_PANEL) {
-      setStatus(AppStatus.FORM);
+      // Only allow returning to form if setup is complete
+      if (isSetupComplete) {
+        setStatus(AppStatus.FORM);
+      }
       return;
     }
     setShowAdminLogin(true);
@@ -209,12 +242,11 @@ const App: React.FC = () => {
         setShowAdminLogin(false);
     }
   };
-
-  // Admin password is now set via environment variables, so this is no longer needed.
-  // This could be updated to call a secure API to change the env var, but that is more complex.
-  const handleSetAdminPassword = (newPassword: string): boolean => {
-    alert("Please update the ADMIN_PASSWORD environment variable in your Vercel project settings.");
-    return false;
+  
+  const handleSetupComplete = () => {
+    // The simplest and most reliable way to refetch all data and reset state
+    // after setup is to just reload the page.
+    window.location.reload();
   };
   
   const renderContent = () => {
@@ -224,11 +256,21 @@ const App: React.FC = () => {
 
     switch (status) {
       case AppStatus.FORM:
-        return <GraduateForm 
+        // Double-check if setup is complete before rendering form.
+        return isSetupComplete ? <GraduateForm 
                   colleges={colleges} 
                   onSubmit={handleSubmit} 
                   formFields={formFields} 
                   themeConfig={themeConfig}
+                /> : <AdminDashboard 
+                  colleges={colleges} 
+                  themeConfig={themeConfig}
+                  formFields={formFields}
+                  submissions={submissions}
+                  onSave={handleSaveSettings}
+                  onClearSubmissions={handleClearSubmissions}
+                  onSetupComplete={handleSetupComplete}
+                  initialTab="Status"
                 />;
       case AppStatus.PROCESSING:
         return <LoadingSpinner themeColor={themeConfig.primaryColor}/>;
@@ -242,12 +284,11 @@ const App: React.FC = () => {
                   submissions={submissions}
                   onSave={handleSaveSettings}
                   onClearSubmissions={handleClearSubmissions}
-                  setAdminPassword={handleSetAdminPassword}
+                  onSetupComplete={handleSetupComplete}
+                  initialTab={isSetupComplete ? 'Submissions' : 'Status'}
                 />;
       case AppStatus.ERROR:
-        return <ErrorDisplay message={errorMessage} onBack={resetApp} themeConfig={themeConfig} />;
-      case AppStatus.CONFIG_ERROR:
-        return <ConfigurationError />;
+        return <ErrorDisplay message={errorMessage} onBack={startupCheck} themeConfig={themeConfig} />;
       default:
         return <GraduateForm colleges={colleges} onSubmit={handleSubmit} formFields={formFields} themeConfig={themeConfig} />;
     }
@@ -270,7 +311,8 @@ const App: React.FC = () => {
         <div className="flex justify-end mb-4">
             <button
               onClick={handleAdminClick}
-              className="bg-white text-slate-700 font-semibold py-2 px-4 border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 transition-colors duration-200 flex items-center gap-2"
+              disabled={status === AppStatus.ADMIN_PANEL && !isSetupComplete}
+              className="bg-white text-slate-700 font-semibold py-2 px-4 border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 transition-colors duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {status === AppStatus.ADMIN_PANEL ? (
                 <>
@@ -309,6 +351,5 @@ const App: React.FC = () => {
     </>
   );
 };
-// Triggering a new deployment after disconnecting the git
 
 export default App;
