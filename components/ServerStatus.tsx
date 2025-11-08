@@ -5,6 +5,7 @@ interface ServerStatusState {
   kvStoreConnected: boolean;
   adminPasswordSet: boolean;
   geminiApiKeySet: boolean;
+  kvConnectionError?: string | null;
 }
 
 interface ServerStatusProps {
@@ -118,6 +119,12 @@ const ServerStatus: React.FC<ServerStatusProps> = ({ onSetupComplete }) => {
                     isOk={status.kvStoreConnected}
                     fixInstruction={
                       <>
+                        {status.kvConnectionError && (
+                            <div className="mb-3 p-3 bg-red-100 border-l-4 border-red-500 text-red-800">
+                                <p className="font-bold">Connection Error:</p>
+                                <p className="text-xs break-words">{status.kvConnectionError}</p>
+                            </div>
+                        )}
                         <p>Go to the <strong className="font-semibold">"Storage"</strong> tab in your Vercel project dashboard to connect a KV store.</p>
                         <strong className="block mt-1">IMPORTANT: After connecting, you must trigger a new deployment for the change to take effect.</strong>
                       </>

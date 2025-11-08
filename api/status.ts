@@ -20,8 +20,8 @@ export default async function handler(req: Request) {
   const geminiApiKeySet = !!API_KEY;
 
   let isKvConnected = false;
+  let kvConnectionError: string | null = null;
   // Only attempt to connect to KV if the environment variables are present.
-  // This prevents the app from crashing on local startup if .env is not set up.
   if (KV_REST_API_URL && KV_REST_API_TOKEN) {
     try {
       // Dynamically import kv to avoid initialization errors when env vars are missing.
@@ -30,9 +30,10 @@ export default async function handler(req: Request) {
       await kv.ping();
       isKvConnected = true;
     } catch (error) {
-      // We log the specific error for server-side debugging but just report 'false' to the client.
+      // We log the specific error for server-side debugging and also pass it to the client.
       console.error('KV Connection Check Failed:', error);
-      isKvConnected = false; // Explicitly set to false on error.
+      isKvConnected = false;
+      kvConnectionError = error instanceof Error ? error.message : String(error);
     }
   }
 
@@ -40,6 +41,7 @@ export default async function handler(req: Request) {
     kvStoreConnected: isKvConnected,
     adminPasswordSet,
     geminiApiKeySet,
+    kvConnectionError, // Pass the specific error message to the frontend
   };
 
   return new Response(JSON.stringify(status), {
