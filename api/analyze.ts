@@ -63,7 +63,23 @@ export default async function handler(req: Request) {
     
     const resultText = (response.text ?? '').trim();
     
-    const matchedName = (resultText && resultText.toUpperCase() !== 'NOMATCH') ? resultText : null;
+    let matchedName: string | null = null;
+
+    if (resultText && resultText.toUpperCase() !== 'NOMATCH') {
+        // Sort colleges by length, longest first, to prioritize more specific matches.
+        // e.g., "King Fahd University of Petroleum and Minerals" before "King Fahd University"
+        const sortedColleges = [...collegeNames].sort((a, b) => b.length - a.length);
+
+        // Find the first college name that is contained within the AI's response.
+        // This makes the matching robust against extra words or punctuation from the AI.
+        const foundCollege = sortedColleges.find(name => 
+            resultText.toLowerCase().includes(name.toLowerCase())
+        );
+        
+        // If a college name from our list is found inside the AI response, use that.
+        // Otherwise, we can't be sure, so we treat it as no match.
+        matchedName = foundCollege || null;
+    }
 
     return new Response(JSON.stringify({ matchedName }), { status: 200, headers: { 'Content-Type': 'application/json' } });
 
