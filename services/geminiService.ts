@@ -2,7 +2,7 @@ export const analyzeCertificate = async (
   certificateBase64: string,
   mimeType: string,
   collegeNames: string[]
-): Promise<string | null> => {
+): Promise<{ extractedName: string | null; matchedName: string | null; }> => {
   const response = await fetch('/api/analyze', {
     method: 'POST',
     headers: {
@@ -17,5 +17,5 @@ export const analyzeCertificate = async (
   }
 
   const result = await response.json();
-  return result.matchedName;
+  return result;
 };

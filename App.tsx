@@ -20,6 +20,7 @@ const App: React.FC = () => {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
 
   const [matchedCollege, setMatchedCollege] = useState<College | null>(null);
+  const [extractedCertificateName, setExtractedCertificateName] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [isSetupComplete, setIsSetupComplete] = useState(false);
@@ -112,29 +113,28 @@ const App: React.FC = () => {
     setStatus(AppStatus.PROCESSING);
     setErrorMessage('');
     setMatchedCollege(null);
+    setExtractedCertificateName(null);
 
     try {
       const collegeNames = colleges.map(c => c.name);
-      const identifiedCollegeName = await analyzeCertificate(certificateBase64, mimeType, collegeNames);
+      const analysisResult = await analyzeCertificate(certificateBase64, mimeType, collegeNames);
+      
+      setExtractedCertificateName(analysisResult.extractedName);
 
-      if (identifiedCollegeName) {
-        // AI found a recognized college in the certificate. This is our source of truth.
-        const foundCollege = colleges.find(c => c.name.toLowerCase() === identifiedCollegeName.toLowerCase());
+      if (analysisResult.matchedName) {
+        const foundCollege = colleges.find(c => c.name.toLowerCase() === analysisResult.matchedName.toLowerCase());
 
         if (foundCollege) {
-            // SUCCESS: As long as the AI finds a valid college from our list, we proceed.
-            
-            // Correct the form data to ensure the saved record matches the certificate.
             const correctedFormData = { ...formData, collegeId: foundCollege.name };
 
             const newSubmission: Submission = {
               id: new Date().toISOString(),
               timestamp: new Date().toLocaleString(),
-              formData: correctedFormData, // Save the corrected data
+              formData: correctedFormData,
               matchedCollegeName: foundCollege.name,
+              extractedName: analysisResult.extractedName || 'N/A',
             };
 
-            // Save new submission to the server
             const res = await fetch('/api/submissions', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -146,24 +146,25 @@ const App: React.FC = () => {
             }
 
             setSubmissions(prev => [newSubmission, ...prev]);
-            setMatchedCollege(foundCollege); // Use the college from the certificate for the success page
+            setMatchedCollege(foundCollege);
             setStatus(AppStatus.SUCCESS);
             
-            // Clear saved form data on successful submission
             try {
               localStorage.removeItem('alumni_saved_form_data');
             } catch (error) {
                 console.error("Could not remove saved form data.", error);
             }
         } else {
-          // This is an unlikely edge case where the AI returns a name from our prompt list,
-          // but we can't find it in our current state. This points to a configuration issue.
-          setErrorMessage(`The certificate is for "${identifiedCollegeName}", but this college is not configured correctly in the system. Please contact an administrator.`);
+          setErrorMessage(`The AI matched the certificate to "${analysisResult.matchedName}", but this college is not configured correctly in the system. Please contact an administrator.`);
           setStatus(AppStatus.ERROR);
         }
       } else {
-        // ERROR (Unrecognized): AI could not identify a recognized college from the list.
-        setErrorMessage('We could not identify a recognized college from your certificate. Please ensure the uploaded file is clear, high-resolution, and from one of the listed institutions.');
+        const baseMessage = 'We could not match your certificate to a recognized college.';
+        const detailedMessage = analysisResult.extractedName
+            ? `We read "${analysisResult.extractedName}" from your certificate, but could not match it to a recognized college. Please ensure you have uploaded a clear certificate from one of the listed institutions.`
+            : 'We could not identify a recognized college from your certificate. Please ensure the uploaded file is clear, high-resolution, and from one of the listed institutions.';
+
+        setErrorMessage(detailedMessage);
         setStatus(AppStatus.ERROR);
       }
     } catch (error) {
@@ -215,6 +216,7 @@ const App: React.FC = () => {
     }
     setMatchedCollege(null);
     setErrorMessage('');
+    setExtractedCertificateName(null);
   };
 
   const handleAdminClick = () => {
@@ -289,7 +291,7 @@ const App: React.FC = () => {
                   initialTab={isSetupComplete ? 'Submissions' : 'Status'}
                 />;
       case AppStatus.ERROR:
-        return <ErrorDisplay message={errorMessage} onBack={resetApp} themeConfig={themeConfig} />; // Changed onBack to resetApp for user flow
+        return <ErrorDisplay message={errorMessage} onBack={resetApp} themeConfig={themeConfig} extractedName={extractedCertificateName} />;
       default:
         // Fallback to form, which will internally be replaced by admin panel if setup is needed.
         return <GraduateForm colleges={colleges} onSubmit={handleSubmit} formFields={formFields} themeConfig={themeConfig} />;

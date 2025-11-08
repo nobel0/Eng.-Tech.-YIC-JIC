@@ -50,4 +50,5 @@ export interface Submission {
   timestamp: string;
   formData: FormData;
   matchedCollegeName: string;
+  extractedName: string;
 }

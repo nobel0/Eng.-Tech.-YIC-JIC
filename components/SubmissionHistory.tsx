@@ -27,6 +27,7 @@ const SubmissionHistory: React.FC<SubmissionHistoryProps> = ({ submissions, onCl
     const headers = [
       ...exportableFields.map(f => f.label),
       'Matched College Name',
+      'AI Identified Name',
       'Timestamp'
     ];
 
@@ -42,6 +43,7 @@ const SubmissionHistory: React.FC<SubmissionHistoryProps> = ({ submissions, onCl
         const rowData = [
             ...exportableFields.map(field => escapeCSV(submission.formData[field.name])),
             escapeCSV(submission.matchedCollegeName),
+            escapeCSV(submission.extractedName),
             escapeCSV(submission.timestamp)
         ];
         return rowData.join(',');
@@ -105,7 +107,10 @@ const SubmissionHistory: React.FC<SubmissionHistoryProps> = ({ submissions, onCl
                   <p className="font-semibold text-slate-800">{submission.formData.name || 'N/A'}</p>
                   <p className="text-sm text-slate-500 flex-shrink-0">{submission.timestamp}</p>
               </div>
-              <p className="text-sm text-slate-600 mt-1">Matched College: <span className="font-medium">{submission.matchedCollegeName}</span></p>
+              <div className="text-sm text-slate-600 mt-2 space-y-1">
+                 <p>Matched College: <span className="font-medium text-slate-800">{submission.matchedCollegeName}</span></p>
+                 <p>AI Identified Name: <span className="font-medium text-slate-800">{submission.extractedName}</span></p>
+              </div>
               <div className="mt-3 pt-3 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                   {getVisibleFields(submission.formData).map(([key, value]) => (
                      <div key={key} className="text-xs text-slate-500 overflow-hidden">
