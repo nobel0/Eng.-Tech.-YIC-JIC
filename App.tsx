@@ -113,55 +113,52 @@ const App: React.FC = () => {
     setErrorMessage('');
     setMatchedCollege(null);
 
-    const userSelectedCollegeName = formData.collegeId;
-
     try {
       const collegeNames = colleges.map(c => c.name);
       const identifiedCollegeName = await analyzeCertificate(certificateBase64, mimeType, collegeNames);
 
       if (identifiedCollegeName) {
-        // AI found a recognized college in the certificate
+        // AI found a recognized college in the certificate. This is our source of truth.
         const foundCollege = colleges.find(c => c.name.toLowerCase() === identifiedCollegeName.toLowerCase());
 
         if (foundCollege) {
-            // Check if the AI's finding matches the user's selection
-            if (identifiedCollegeName.toLowerCase() === userSelectedCollegeName.toLowerCase()) {
-                // SUCCESS: Match is successful
-                const newSubmission: Submission = {
-                  id: new Date().toISOString(),
-                  timestamp: new Date().toLocaleString(),
-                  formData: formData,
-                  matchedCollegeName: foundCollege.name,
-                };
+            // SUCCESS: As long as the AI finds a valid college from our list, we proceed.
+            
+            // Correct the form data to ensure the saved record matches the certificate.
+            const correctedFormData = { ...formData, collegeId: foundCollege.name };
 
-                // Save new submission to the server
-                const res = await fetch('/api/submissions', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(newSubmission),
-                });
-                
-                if (!res.ok) {
-                  await handleFetchError(res, "submission save");
-                }
+            const newSubmission: Submission = {
+              id: new Date().toISOString(),
+              timestamp: new Date().toLocaleString(),
+              formData: correctedFormData, // Save the corrected data
+              matchedCollegeName: foundCollege.name,
+            };
 
-                setSubmissions(prev => [newSubmission, ...prev]);
-                setMatchedCollege(foundCollege);
-                setStatus(AppStatus.SUCCESS);
-                // Clear saved form data on successful submission
-                try {
-                  localStorage.removeItem('alumni_saved_form_data');
-                } catch (error) {
-                    console.error("Could not remove saved form data.", error);
-                }
-            } else {
-                // ERROR (Mismatch): User selected one college, but certificate is for another recognized one.
-                setErrorMessage(`It looks like your certificate is from "${identifiedCollegeName}", but you selected "${userSelectedCollegeName}". Please try again and select the correct college from the list.`);
-                setStatus(AppStatus.ERROR);
+            // Save new submission to the server
+            const res = await fetch('/api/submissions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(newSubmission),
+            });
+            
+            if (!res.ok) {
+              await handleFetchError(res, "submission save");
+            }
+
+            setSubmissions(prev => [newSubmission, ...prev]);
+            setMatchedCollege(foundCollege); // Use the college from the certificate for the success page
+            setStatus(AppStatus.SUCCESS);
+            
+            // Clear saved form data on successful submission
+            try {
+              localStorage.removeItem('alumni_saved_form_data');
+            } catch (error) {
+                console.error("Could not remove saved form data.", error);
             }
         } else {
-          // This case is unlikely if identifiedCollegeName is in collegeNames, but it's a safe fallback.
-          setErrorMessage(`The certificate is for "${identifiedCollegeName}". This college or university is not part of this community group.`);
+          // This is an unlikely edge case where the AI returns a name from our prompt list,
+          // but we can't find it in our current state. This points to a configuration issue.
+          setErrorMessage(`The certificate is for "${identifiedCollegeName}", but this college is not configured correctly in the system. Please contact an administrator.`);
           setStatus(AppStatus.ERROR);
         }
       } else {
