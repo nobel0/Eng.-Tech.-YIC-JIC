@@ -1,5 +1,3 @@
-/// <reference types="vite/client" />
-
 import React, { useState, useEffect } from 'react';
 import LoadingSpinner from './LoadingSpinner';
 
@@ -14,7 +12,10 @@ interface ServerStatusProps {
     onSetupComplete: () => void;
 }
 
-const isDevelopment = import.meta.env.DEV;
+// FIX: Workaround for TypeScript error "Property 'env' does not exist on type 'ImportMeta'".
+// This can happen when 'vite/client' types are not loaded correctly.
+// Using a type assertion to bypass the check for this Vite-specific feature.
+const isDevelopment = (import.meta as any).env.DEV;
 
 const StatusRow: React.FC<{ label: string; isOk: boolean; fixInstruction: React.ReactNode; }> = ({ label, isOk, fixInstruction }) => (
     <div className={`p-4 rounded-lg flex items-start gap-4 ${isOk ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border`}>
@@ -129,10 +130,19 @@ const ServerStatus: React.FC<ServerStatusProps> = ({ onSetupComplete }) => {
                                 <p className="text-xs break-words">{status.kvConnectionError}</p>
                             </div>
                         )}
-                        <p>Your application needs a database to store settings and submissions.</p>
-                        <ol className="list-decimal list-inside mt-2 space-y-1 font-medium">
+                        <p>Your application requires a Redis database. Follow these steps carefully:</p>
+                        <ol className="list-decimal list-inside mt-2 space-y-2">
                             <li>Go to the <span className="font-semibold">"Storage"</span> tab in your Vercel project dashboard.</li>
-                            <li>Create and connect a new <span className="font-semibold">KV (Redis)</span> store.</li>
+                            <li>Find <strong className="font-semibold">Upstash (Serverless DB)</strong> and click the dropdown/arrow.</li>
+                            <li>From the sub-options, click <strong className="font-semibold">Create</strong> next to <strong className="font-semibold">Upstash for Redis</strong>.</li>
+                            <li>On the final <strong className="font-semibold">"Create Database"</strong> screen:
+                                <ul className="list-disc list-inside ml-4 mt-1 text-slate-800">
+                                    <li>Leave the regions as their defaults (they are fine).</li>
+                                    <li>Select the <strong className="font-semibold">Free</strong> plan.</li>
+                                    <li><strong className="text-red-600">IMPORTANT:</strong> Leave the <strong className="font-semibold">"Eviction"</strong> toggle OFF. Enabling it will delete your data automatically.</li>
+                                    <li>Click <strong className="font-semibold">Create</strong> to finish.</li>
+                                </ul>
+                            </li>
                         </ol>
                         {isDevelopment ? (
                           <p className="mt-2 text-sm">
