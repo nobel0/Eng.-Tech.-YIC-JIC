@@ -96,5 +96,10 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), vercelDevServer()],
+    server: {
+      // Prevent Vite from automatically opening the browser.
+      // This avoids potential issues with shell commands on different platforms.
+      open: false,
+    },
   }
 });
