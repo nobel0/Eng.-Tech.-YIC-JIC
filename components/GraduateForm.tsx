@@ -20,7 +20,7 @@ const GraduateForm: React.FC<GraduateFormProps> = ({ colleges, onSubmit, formFie
     const initialData: FormData = {};
     formFields.forEach(field => {
         if (field.name === 'collegeId' && colleges.length > 0) {
-            initialData[field.name] = colleges[0].id;
+            initialData[field.name] = colleges[0].name;
         } else {
             initialData[field.name] = '';
         }
