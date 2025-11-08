@@ -1,5 +1,4 @@
 {
-  "devCommand": "vite",
   "rewrites": [
     {
       "source": "/:path((?!api/|.*\\..*).*)",

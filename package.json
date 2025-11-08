@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "vercel dev",
+    "dev": "vite",
+    "start": "vercel dev",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },
