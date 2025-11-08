@@ -59,7 +59,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setTimeout(() => setSaveStatus('idle'), 2500);
     } catch (error) {
         setSaveStatus('error');
-        alert(`Failed to save changes: ${error.message}`);
+        const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+        alert(`Failed to save changes: ${message}`);
     }
   };
 

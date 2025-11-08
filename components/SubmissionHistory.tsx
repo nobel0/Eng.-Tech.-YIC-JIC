@@ -13,7 +13,8 @@ const SubmissionHistory: React.FC<SubmissionHistoryProps> = ({ submissions, onCl
       try {
         await onClearSubmissions();
       } catch (error) {
-        alert(`Failed to clear submission history: ${error.message}`);
+        const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+        alert(`Failed to clear submission history: ${message}`);
       }
     }
   };

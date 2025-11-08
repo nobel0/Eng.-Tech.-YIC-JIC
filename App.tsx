@@ -96,7 +96,7 @@ const App: React.FC = () => {
 
     } catch (error) {
       console.error('Error during application startup:', error);
-      setErrorMessage(error.message || 'An unexpected error occurred during startup.');
+      setErrorMessage(error instanceof Error ? error.message : 'An unexpected error occurred during startup.');
       setStatus(AppStatus.ERROR);
     } finally {
       setIsLoading(false);
@@ -157,7 +157,7 @@ const App: React.FC = () => {
       }
     } catch (error) {
       console.error('Error processing submission:', error);
-      setErrorMessage(error.message || 'An unexpected error occurred. Please try again later.');
+      setErrorMessage(error instanceof Error ? error.message : 'An unexpected error occurred. Please try again later.');
       setStatus(AppStatus.ERROR);
     }
   };
@@ -321,7 +321,7 @@ const App: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="http://www.w3.org/2000/svg" fill="currentColor"><path d="M5 4a1 1 0 00-2 0v7.268a2 2 0 000 3.464V16a1 1 0 102 0v-1.268a2 2 0 000-3.464V4zM11 4a1 1 0 10-2 0v1.268a2 2 0 000 3.464V16a1 1 0 102 0V8.732a2 2 0 000-3.464V4zM16 3a1 1 0 011 1v7.268a2 2 0 010 3.464V16a1 1 0 11-2 0v-1.268a2 2 0 010-3.464V4a1 1 0 011-1z" /></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a1 1 0 00-2 0v7.268a2 2 0 000 3.464V16a1 1 0 102 0v-1.268a2 2 0 000-3.464V4zM11 4a1 1 0 10-2 0v1.268a2 2 0 000 3.464V16a1 1 0 102 0V8.732a2 2 0 000-3.464V4zM16 3a1 1 0 011 1v7.268a2 2 0 010 3.464V16a1 1 0 11-2 0v-1.268a2 2 0 010-3.464V4a1 1 0 011-1z" /></svg>
                   Admin Panel
                 </>
               )}
