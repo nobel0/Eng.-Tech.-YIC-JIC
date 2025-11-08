@@ -10,12 +10,21 @@ interface ErrorDisplayProps {
 const ErrorDisplay: React.FC<ErrorDisplayProps> = ({ message, onBack, themeConfig }) => {
   return (
     <div className="text-center space-y-6">
-      <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100">
-        <svg className="h-10 w-10 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div 
+        className="mx-auto flex items-center justify-center h-16 w-16 rounded-full"
+        style={{ backgroundColor: themeConfig.errorIconBackgroundColor }}
+      >
+        <svg 
+          className="h-10 w-10" 
+          style={{ color: themeConfig.errorIconColor }} 
+          fill="none" 
+          viewBox="0 0 24 24" 
+          stroke="currentColor"
+        >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       </div>
-      <h2 className="text-2xl font-bold text-slate-800">An Error Occurred</h2>
+      <h2 className="text-2xl font-bold text-slate-800">{themeConfig.errorTitle}</h2>
       <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4">
         <p>{message}</p>
       </div>

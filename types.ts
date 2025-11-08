@@ -36,6 +36,13 @@ export interface ThemeConfig {
     subHeaderText: string;
     primaryColor: string;
     logo: string; // base64 encoded image string
+    successTitle: string;
+    successMessage: string; // Can use {collegeName} as a placeholder
+    successIconColor: string;
+    successIconBackgroundColor: string;
+    errorTitle: string;
+    errorIconColor: string;
+    errorIconBackgroundColor: string;
 }
 
 export interface Submission {

@@ -1,12 +1,13 @@
 import React from 'react';
-import { Submission } from '../types';
+import { Submission, FormField } from '../types';
 
 interface SubmissionHistoryProps {
   submissions: Submission[];
   onClearSubmissions: () => Promise<void>;
+  formFields: FormField[];
 }
 
-const SubmissionHistory: React.FC<SubmissionHistoryProps> = ({ submissions, onClearSubmissions }) => {
+const SubmissionHistory: React.FC<SubmissionHistoryProps> = ({ submissions, onClearSubmissions, formFields }) => {
   const handleClearHistory = async () => {
     if (window.confirm('Are you sure you want to delete all submission records? This action cannot be undone.')) {
       try {
@@ -18,6 +19,49 @@ const SubmissionHistory: React.FC<SubmissionHistoryProps> = ({ submissions, onCl
     }
   };
 
+  const handleExportCSV = () => {
+    if (submissions.length === 0) return;
+
+    const exportableFields = formFields.filter(f => f.type !== 'file');
+    
+    const headers = [
+      ...exportableFields.map(f => f.label),
+      'Matched College Name',
+      'Timestamp'
+    ];
+
+    const escapeCSV = (value: any) => {
+      const stringValue = String(value ?? '');
+      if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+        return `"${stringValue.replace(/"/g, '""')}"`;
+      }
+      return stringValue;
+    };
+
+    const rows = submissions.map(submission => {
+        const rowData = [
+            ...exportableFields.map(field => escapeCSV(submission.formData[field.name])),
+            escapeCSV(submission.matchedCollegeName),
+            escapeCSV(submission.timestamp)
+        ];
+        return rowData.join(',');
+    });
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'submissions.csv');
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }
+  };
+
   const getVisibleFields = (formData: { [key: string]: any }) => {
     // Exclude file data and other non-display fields from the detailed view
     const excludedKeys = ['certificate', 'collegeId'];
@@ -26,15 +70,23 @@ const SubmissionHistory: React.FC<SubmissionHistoryProps> = ({ submissions, onCl
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
         <h3 className="text-xl font-bold text-slate-800">Submission History</h3>
         {submissions.length > 0 && (
-          <button 
-            onClick={handleClearHistory} 
-            className="py-2 px-4 border rounded-md shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200 border-red-300 text-red-700 bg-white hover:bg-red-50"
-          >
-            Clear History
-          </button>
+          <div className="flex gap-3">
+            <button
+                onClick={handleExportCSV}
+                className="py-2 px-4 border rounded-md shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200 border-slate-300 text-slate-700 bg-white hover:bg-slate-50"
+            >
+                Export as CSV
+            </button>
+            <button 
+              onClick={handleClearHistory} 
+              className="py-2 px-4 border rounded-md shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200 border-red-300 text-red-700 bg-white hover:bg-red-50"
+            >
+              Clear History
+            </button>
+          </div>
         )}
       </div>
       {submissions.length === 0 ? (

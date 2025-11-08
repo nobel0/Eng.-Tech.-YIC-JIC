@@ -8,14 +8,35 @@ interface SuccessPageProps {
 }
 
 const SuccessPage: React.FC<SuccessPageProps> = ({ college, onBack, themeConfig }) => {
+  const messageParts = themeConfig.successMessage.split('{collegeName}');
+
   return (
     <div className="text-center space-y-6">
-      <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100">
-        <svg className="h-10 w-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+      <div 
+        className="mx-auto flex items-center justify-center h-16 w-16 rounded-full" 
+        style={{ backgroundColor: themeConfig.successIconBackgroundColor }}
+      >
+        <svg 
+          className="h-10 w-10" 
+          style={{ color: themeConfig.successIconColor }} 
+          fill="none" 
+          stroke="currentColor" 
+          viewBox="0 0 24 24" 
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+        </svg>
       </div>
-      <h2 className="text-2xl font-bold text-slate-800">Verification Successful!</h2>
+      <h2 className="text-2xl font-bold text-slate-800">{themeConfig.successTitle}</h2>
       <p className="text-slate-600">
-        Welcome! We've confirmed you are a graduate of <span className="font-semibold" style={{color: themeConfig.primaryColor}}>{college.name}</span>.
+        {messageParts.map((part, index) => 
+            <React.Fragment key={index}>
+              {part}
+              {index < messageParts.length - 1 && (
+                <span className="font-semibold" style={{color: themeConfig.primaryColor}}>{college.name}</span>
+              )}
+            </React.Fragment>
+        )}
       </p>
       <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
         <p className="text-slate-700 mb-4">Click the button below to join your alumni group:</p>

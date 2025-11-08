@@ -23,6 +23,13 @@ export const INITIAL_THEME_CONFIG: ThemeConfig = {
     subHeaderText: 'Join your alumni community by verifying your graduation certificate.',
     primaryColor: '#4f46e5', // Indigo-600
     logo: '',
+    successTitle: 'Verification Successful!',
+    successMessage: "Welcome! We've confirmed you are a graduate of {collegeName}.",
+    successIconColor: '#16a34a', // green-600
+    successIconBackgroundColor: '#dcfce7', // green-100
+    errorTitle: 'An Error Occurred',
+    errorIconColor: '#dc2626', // red-600
+    errorIconBackgroundColor: '#fee2e2', // red-100
 };
 
 export const INITIAL_FORM_FIELDS: FormField[] = [
