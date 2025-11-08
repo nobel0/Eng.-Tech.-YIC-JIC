@@ -113,46 +113,60 @@ const App: React.FC = () => {
     setErrorMessage('');
     setMatchedCollege(null);
 
+    const userSelectedCollegeName = formData.collegeId;
+
     try {
       const collegeNames = colleges.map(c => c.name);
-      const matchedName = await analyzeCertificate(certificateBase64, mimeType, collegeNames);
+      const identifiedCollegeName = await analyzeCertificate(certificateBase64, mimeType, collegeNames);
 
-      if (matchedName) {
-        const foundCollege = colleges.find(c => c.name.toLowerCase() === matchedName.toLowerCase());
+      if (identifiedCollegeName) {
+        // AI found a recognized college in the certificate
+        const foundCollege = colleges.find(c => c.name.toLowerCase() === identifiedCollegeName.toLowerCase());
+
         if (foundCollege) {
-          const newSubmission: Submission = {
-            id: new Date().toISOString(),
-            timestamp: new Date().toLocaleString(),
-            formData: formData,
-            matchedCollegeName: foundCollege.name,
-          };
+            // Check if the AI's finding matches the user's selection
+            if (identifiedCollegeName.toLowerCase() === userSelectedCollegeName.toLowerCase()) {
+                // SUCCESS: Match is successful
+                const newSubmission: Submission = {
+                  id: new Date().toISOString(),
+                  timestamp: new Date().toLocaleString(),
+                  formData: formData,
+                  matchedCollegeName: foundCollege.name,
+                };
 
-          // Save new submission to the server
-          const res = await fetch('/api/submissions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newSubmission),
-          });
-          
-          if (!res.ok) {
-            await handleFetchError(res, "submission save");
-          }
+                // Save new submission to the server
+                const res = await fetch('/api/submissions', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(newSubmission),
+                });
+                
+                if (!res.ok) {
+                  await handleFetchError(res, "submission save");
+                }
 
-          setSubmissions(prev => [newSubmission, ...prev]);
-          setMatchedCollege(foundCollege);
-          setStatus(AppStatus.SUCCESS);
-          // Clear saved form data on successful submission
-          try {
-            localStorage.removeItem('alumni_saved_form_data');
-          } catch (error) {
-              console.error("Could not remove saved form data.", error);
-          }
+                setSubmissions(prev => [newSubmission, ...prev]);
+                setMatchedCollege(foundCollege);
+                setStatus(AppStatus.SUCCESS);
+                // Clear saved form data on successful submission
+                try {
+                  localStorage.removeItem('alumni_saved_form_data');
+                } catch (error) {
+                    console.error("Could not remove saved form data.", error);
+                }
+            } else {
+                // ERROR (Mismatch): User selected one college, but certificate is for another recognized one.
+                setErrorMessage(`It looks like your certificate is from "${identifiedCollegeName}", but you selected "${userSelectedCollegeName}". Please try again and select the correct college from the list.`);
+                setStatus(AppStatus.ERROR);
+            }
         } else {
-          setErrorMessage(`The certificate is for "${matchedName}". This college or university is not part of this community group.`);
+          // This case is unlikely if identifiedCollegeName is in collegeNames, but it's a safe fallback.
+          setErrorMessage(`The certificate is for "${identifiedCollegeName}". This college or university is not part of this community group.`);
           setStatus(AppStatus.ERROR);
         }
       } else {
-        setErrorMessage('We could not identify a recognized college from your certificate. Please ensure the uploaded file is clear and high-resolution.');
+        // ERROR (Unrecognized): AI could not identify a recognized college from the list.
+        setErrorMessage('We could not identify a recognized college from your certificate. Please ensure the uploaded file is clear, high-resolution, and from one of the listed institutions.');
         setStatus(AppStatus.ERROR);
       }
     } catch (error) {
@@ -278,7 +292,7 @@ const App: React.FC = () => {
                   initialTab={isSetupComplete ? 'Submissions' : 'Status'}
                 />;
       case AppStatus.ERROR:
-        return <ErrorDisplay message={errorMessage} onBack={startupCheck} themeConfig={themeConfig} />;
+        return <ErrorDisplay message={errorMessage} onBack={resetApp} themeConfig={themeConfig} />; // Changed onBack to resetApp for user flow
       default:
         // Fallback to form, which will internally be replaced by admin panel if setup is needed.
         return <GraduateForm colleges={colleges} onSubmit={handleSubmit} formFields={formFields} themeConfig={themeConfig} />;

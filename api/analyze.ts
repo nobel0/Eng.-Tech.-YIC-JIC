@@ -33,16 +33,21 @@ export default async function handler(req: Request) {
     const imagePart = fileToGenerativePart(certificateBase64, mimeType);
 
     const prompt = `
-    Analyze the text in this graduation certificate document. Identify the name of the college or university. 
-    From the following list of colleges, which one is mentioned in the certificate? 
-    
-    Respond with ONLY the name of the college from the provided list if you find a match. 
-    If you don't find a clear match from the list, respond with "NOMATCH".
+    You are an expert document analyzer. Your task is to strictly identify the name of the college or university from the provided graduation certificate image.
 
-    List of colleges:
+    From the provided list, find the exact match for the institution named in the certificate.
+
+    **List of recognized colleges:**
     ${collegeNames.map(name => `- ${name}`).join('\n')}
 
-    Do not add any other explanation or text. Your response should be just the college name from the list or the word "NOMATCH".
+    **Strict Matching Rules:**
+    1. Only return a name from the list if it is explicitly and clearly written on the certificate. Do not infer or guess.
+    2. For "Yanbu Industrial College" or "Jubail Industrial College", the certificate MUST contain the full phrase "Yanbu Industrial College" or "Jubail Industrial College".
+    3. For any college named "Technical College", the certificate MUST contain the explicit phrase "Technical College".
+    4. If the certificate mentions a college that is NOT on the list, you MUST respond with "NOMATCH".
+    5. If the image is unclear, unreadable, or not a certificate, you MUST respond with "NOMATCH".
+
+    Your response MUST be ONLY the full name of the college from the list if a match is found according to these rules. Otherwise, your response MUST be the single word "NOMATCH". Do not add any explanation.
     `;
     
     const response = await ai.models.generateContent({
