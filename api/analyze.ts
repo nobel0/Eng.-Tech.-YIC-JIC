@@ -51,13 +51,14 @@ export default async function handler(req: Request) {
         contents: { parts: [filePart, { text: prompt }] },
     });
     
-    const resultText = response.text.trim();
+    const resultText = (response.text ?? '').trim();
     const matchedName = (resultText && resultText.toUpperCase() !== 'NOMATCH') ? resultText : null;
 
     return new Response(JSON.stringify({ matchedName }), { status: 200, headers: { 'Content-Type': 'application/json' } });
 
   } catch (error) {
     console.error('API /api/analyze error:', error);
-    return new Response(JSON.stringify({ error: error.message || 'An unexpected error occurred during analysis.' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred during analysis.';
+    return new Response(JSON.stringify({ error: errorMessage }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 }
