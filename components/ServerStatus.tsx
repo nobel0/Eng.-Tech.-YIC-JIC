@@ -12,11 +12,6 @@ interface ServerStatusProps {
     onSetupComplete: () => void;
 }
 
-// FIX: Workaround for TypeScript error "Property 'env' does not exist on type 'ImportMeta'".
-// This can happen when 'vite/client' types are not loaded correctly.
-// Using a type assertion to bypass the check for this Vite-specific feature.
-const isDevelopment = (import.meta as any).env.DEV;
-
 const StatusRow: React.FC<{ label: string; isOk: boolean; fixInstruction: React.ReactNode; }> = ({ label, isOk, fixInstruction }) => (
     <div className={`p-4 rounded-lg flex items-start gap-4 ${isOk ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border`}>
         <div className="flex-shrink-0">
@@ -41,6 +36,10 @@ const ServerStatus: React.FC<ServerStatusProps> = ({ onSetupComplete }) => {
     const [error, setError] = useState<string>('');
     const [isLoading, setIsLoading] = useState(true);
     const [wasEverIncomplete, setWasEverIncomplete] = useState(false);
+
+    // Determine if running in a local development environment at runtime.
+    // This is more robust than a build-time flag for preview environments.
+    const isDevelopment = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
     const fetchStatus = async () => {
         setIsLoading(true);

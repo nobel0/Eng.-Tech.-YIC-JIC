@@ -1,14 +1,8 @@
-
-// Vercel Serverless Function
-// This function will be deployed at the `/api/login` endpoint.
-// It securely validates the admin password.
-
 export const config = {
   runtime: 'edge',
 };
 
 export default async function handler(req: Request) {
-  // Only allow POST requests
   if (req.method !== 'POST') {
     return new Response(`Method ${req.method} Not Allowed`, {
       status: 405,

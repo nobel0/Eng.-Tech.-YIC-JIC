@@ -1,4 +1,3 @@
-
 export const analyzeCertificate = async (
   certificateBase64: string,
   mimeType: string,

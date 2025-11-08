@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { College, AppStatus, FormData, ThemeConfig, FormField, Submission } from './types';
 import { INITIAL_COLLEGES, INITIAL_THEME_CONFIG, INITIAL_FORM_FIELDS } from './constants';
@@ -244,8 +243,8 @@ const App: React.FC = () => {
   };
   
   const handleSetupComplete = () => {
-    // The simplest and most reliable way to refetch all data and reset state
-    // after setup is to just reload the page.
+    // A simple page reload is the most reliable way to refetch all data and reset state
+    // after critical setup changes (like connecting a database).
     window.location.reload();
   };
   
@@ -256,21 +255,11 @@ const App: React.FC = () => {
 
     switch (status) {
       case AppStatus.FORM:
-        // Double-check if setup is complete before rendering form.
-        return isSetupComplete ? <GraduateForm 
+        return <GraduateForm 
                   colleges={colleges} 
                   onSubmit={handleSubmit} 
                   formFields={formFields} 
                   themeConfig={themeConfig}
-                /> : <AdminDashboard 
-                  colleges={colleges} 
-                  themeConfig={themeConfig}
-                  formFields={formFields}
-                  submissions={submissions}
-                  onSave={handleSaveSettings}
-                  onClearSubmissions={handleClearSubmissions}
-                  onSetupComplete={handleSetupComplete}
-                  initialTab="Status"
                 />;
       case AppStatus.PROCESSING:
         return <LoadingSpinner themeColor={themeConfig.primaryColor}/>;
@@ -290,11 +279,12 @@ const App: React.FC = () => {
       case AppStatus.ERROR:
         return <ErrorDisplay message={errorMessage} onBack={startupCheck} themeConfig={themeConfig} />;
       default:
+        // Fallback to form, which will internally be replaced by admin panel if setup is needed.
         return <GraduateForm colleges={colleges} onSubmit={handleSubmit} formFields={formFields} themeConfig={themeConfig} />;
     }
   };
 
-  // Create a dynamic style tag to apply the primary color
+  // Create a dynamic style tag to apply the primary color from the theme config
   const dynamicStyles = `
     :root {
       --primary-color: ${themeConfig.primaryColor};

@@ -1,4 +1,3 @@
-
 import { GoogleGenAI } from '@google/genai';
 
 export const config = {
@@ -31,7 +30,7 @@ export default async function handler(req: Request) {
     }
 
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const filePart = fileToGenerativePart(certificateBase64, mimeType);
+    const imagePart = fileToGenerativePart(certificateBase64, mimeType);
 
     const prompt = `
     Analyze the text in this graduation certificate document. Identify the name of the college or university. 
@@ -48,15 +47,17 @@ export default async function handler(req: Request) {
     
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
-        contents: { parts: [filePart, { text: prompt }] },
+        contents: { parts: [{ text: prompt }, imagePart] },
     });
     
-    const resultText = (response.text ?? '').trim();
+    const resultText = response.text.trim();
+    
     const matchedName = (resultText && resultText.toUpperCase() !== 'NOMATCH') ? resultText : null;
 
     return new Response(JSON.stringify({ matchedName }), { status: 200, headers: { 'Content-Type': 'application/json' } });
 
-  } catch (error) {
+  } catch (error)
+  {
     console.error('API /api/analyze error:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred during analysis.';
     return new Response(JSON.stringify({ error: errorMessage }), { status: 500, headers: { 'Content-Type': 'application/json' } });

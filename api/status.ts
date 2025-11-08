@@ -1,6 +1,4 @@
-// Vercel Serverless Function
-// Path: /api/status
-// Checks for the presence of all required server-side environment variables and pings the KV store.
+import { kv } from '@vercel/kv';
 
 export const config = {
   runtime: 'edge',
@@ -14,28 +12,25 @@ export default async function handler(req: Request) {
     });
   }
 
-  const { ADMIN_PASSWORD, API_KEY, KV_REST_API_URL, KV_REST_API_TOKEN } = process.env;
+  const { ADMIN_PASSWORD, API_KEY } = process.env;
 
   const adminPasswordSet = !!ADMIN_PASSWORD;
   const geminiApiKeySet = !!API_KEY;
 
   let isKvConnected = false;
   let kvConnectionError: string | null = null;
-  // Only attempt to connect to KV if the environment variables are present.
-  if (KV_REST_API_URL && KV_REST_API_TOKEN) {
-    try {
-      // Dynamically import kv to avoid initialization errors when env vars are missing.
-      const { kv } = await import('@vercel/kv');
-      // This will attempt a 'ping' command to the database.
-      await kv.ping();
-      isKvConnected = true;
-    } catch (error) {
-      // We log the specific error for server-side debugging and also pass it to the client.
-      console.error('KV Connection Check Failed:', error);
-      isKvConnected = false;
-      kvConnectionError = error instanceof Error ? error.message : String(error);
-    }
+  
+  try {
+    // This will throw an error if the required KV_... env vars are not set.
+    // A simple `info` command acts as a connection test.
+    await kv.info();
+    isKvConnected = true;
+  } catch (error) {
+    console.error('KV Connection Check Failed:', error);
+    isKvConnected = false;
+    kvConnectionError = error instanceof Error ? error.message : String(error);
   }
+
 
   const status = {
     kvStoreConnected: isKvConnected,

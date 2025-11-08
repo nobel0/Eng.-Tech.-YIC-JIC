@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { College, FormData, FormField, ThemeConfig } from '../types';
 
@@ -180,7 +179,7 @@ const GraduateForm: React.FC<GraduateFormProps> = ({ colleges, onSubmit, formFie
             if (field.optionsSource === 'colleges') {
                 return (
                     <select {...commonProps} value={formData[field.name] || ''} onChange={handleInputChange}>
-                        {colleges.map(college => (<option key={college.id} value={college.id}>{college.name}</option>))}
+                        {colleges.map(college => (<option key={college.id} value={college.name}>{college.name}</option>))}
                     </select>
                 );
             } else if (field.options && field.options.length > 0) {

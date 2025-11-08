@@ -1,4 +1,3 @@
-
 import { College, ThemeConfig, FormField } from './types';
 
 export const INITIAL_COLLEGES: College[] = [
