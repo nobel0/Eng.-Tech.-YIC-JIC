@@ -41,9 +41,9 @@ export default async function handler(req: Request) {
   } catch (error) {
     console.error('API /api/settings error:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    // Provide a clear, user-facing error message for connection issues.
+    // Provide a more detailed, user-facing error message.
     return errorResponse(
-      `Database connection failed. Details: ${errorMessage}. Please ensure your Vercel project has a KV store connected and the environment variables are available. After connecting, a new deployment is required.`, 
+      `An error occurred while communicating with the database. Details: ${errorMessage}. This could be a connection issue, or the data being saved might be too large (e.g., a large logo image exceeds the 1MB limit). Please check your Vercel KV store connection and try again.`, 
       500
     );
   }

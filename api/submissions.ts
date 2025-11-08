@@ -47,9 +47,9 @@ export default async function handler(req: Request) {
   } catch (error) {
     console.error('API /api/submissions error:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-     // Provide a clear, user-facing error message for connection issues.
+     // Provide a clearer, user-facing error message.
     return errorResponse(
-      `Database connection failed. Details: ${errorMessage}. Please ensure your Vercel project has a KV or Redis store connected and the environment variables are available. After connecting, a new deployment is required.`,
+      `An error occurred while communicating with the database. Details: ${errorMessage}. Please check your Vercel KV store connection and that the environment variables are correctly configured.`,
       500
     );
   }
