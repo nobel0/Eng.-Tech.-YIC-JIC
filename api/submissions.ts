@@ -2,32 +2,12 @@
 // This function will be deployed at the `/api/submissions` endpoint.
 // It manages the list of submissions in the Vercel KV store.
 
-import { createClient, VercelKV } from '@vercel/kv';
+import { kv } from '@vercel/kv';
 import type { Submission } from './types';
 
 export const config = {
   runtime: 'edge',
 };
-
-// This function creates the DB client, supporting both Vercel KV and Vercel Redis.
-function getDbClient(): VercelKV {
-  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-    return createClient({
-      url: process.env.KV_REST_API_URL,
-      token: process.env.KV_REST_API_TOKEN,
-    });
-  } else if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-    // For Vercel Redis, the variables from Upstash are used.
-    return createClient({
-      url: process.env.UPSTASH_REDIS_REST_URL,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN,
-    });
-  } else {
-    // If neither is found, we cannot connect to a database.
-    throw new Error('Database connection variables are not set. Please connect a Vercel KV or Redis store.');
-  }
-}
-
 
 const SUBMISSIONS_KEY = 'submissions';
 
@@ -40,8 +20,7 @@ export default async function handler(req: Request) {
   };
 
   try {
-    const kv = getDbClient(); // Get a configured client instance.
-
+    // The `kv` object from `@vercel/kv` is automatically configured by Vercel.
     if (req.method === 'GET') {
       const submissions = await kv.get<Submission[]>(SUBMISSIONS_KEY) || [];
       return new Response(JSON.stringify(submissions), {
@@ -67,9 +46,10 @@ export default async function handler(req: Request) {
     }
   } catch (error) {
     console.error('API /api/submissions error:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
      // Provide a clear, user-facing error message for connection issues.
     return errorResponse(
-      `Database connection failed. ${error.message} Please ensure your Vercel project has a KV or Redis store connected and the environment variables are available. After connecting, a new deployment is required.`,
+      `Database connection failed. Details: ${errorMessage}. Please ensure your Vercel project has a KV or Redis store connected and the environment variables are available. After connecting, a new deployment is required.`,
       500
     );
   }
