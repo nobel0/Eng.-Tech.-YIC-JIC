@@ -1,6 +1,7 @@
 // Vercel Serverless Function
 // Path: /api/status
 // Checks for the presence of all required server-side environment variables.
+import { kv } from '@vercel/kv';
 
 export const config = {
   runtime: 'edge',
@@ -14,18 +15,24 @@ export default async function handler(req: Request) {
     });
   }
 
-  const {
-    KV_REST_API_URL,
-    KV_REST_API_TOKEN,
-    UPSTASH_REDIS_REST_URL,
-    UPSTASH_REDIS_REST_TOKEN,
-    ADMIN_PASSWORD,
-    API_KEY,
-  } = process.env;
+  let isKvConnected = false;
+  try {
+    // Perform a harmless, lightweight operation to truly check connectivity.
+    // The 'ping' command is ideal as it's a simple round-trip check.
+    // If this doesn't throw an error, the connection is valid.
+    await kv.ping();
+    isKvConnected = true;
+  } catch (error) {
+    // Any error during the ping (e.g., connection refused, auth failed)
+    // indicates the KV store is not properly configured or accessible.
+    console.error('KV Connection Check Failed:', error);
+    isKvConnected = false;
+  }
+
+  const { ADMIN_PASSWORD, API_KEY } = process.env;
 
   const status = {
-    // A valid connection exists if either the KV variables OR the Redis (Upstash) variables are present.
-    kvStoreConnected: !!((KV_REST_API_URL && KV_REST_API_TOKEN) || (UPSTASH_REDIS_REST_URL && UPSTASH_REDIS_REST_TOKEN)),
+    kvStoreConnected: isKvConnected,
     adminPasswordSet: !!ADMIN_PASSWORD,
     geminiApiKeySet: !!API_KEY,
   };
