@@ -122,7 +122,8 @@ const App: React.FC = () => {
       setExtractedCertificateName(analysisResult.extractedName);
 
       if (analysisResult.matchedName) {
-        const foundCollege = colleges.find(c => c.name.toLowerCase() === analysisResult.matchedName.toLowerCase());
+        const matchedName = analysisResult.matchedName;
+        const foundCollege = colleges.find(c => c.name.toLowerCase() === matchedName.toLowerCase());
 
         if (foundCollege) {
             const correctedFormData = { ...formData, collegeId: foundCollege.name };
@@ -155,11 +156,10 @@ const App: React.FC = () => {
                 console.error("Could not remove saved form data.", error);
             }
         } else {
-          setErrorMessage(`The AI matched the certificate to "${analysisResult.matchedName}", but this college is not configured correctly in the system. Please contact an administrator.`);
+          setErrorMessage(`The AI matched the certificate to "${matchedName}", but this college is not configured correctly in the system. Please contact an administrator.`);
           setStatus(AppStatus.ERROR);
         }
       } else {
-        const baseMessage = 'We could not match your certificate to a recognized college.';
         const detailedMessage = analysisResult.extractedName
             ? `We read "${analysisResult.extractedName}" from your certificate, but could not match it to a recognized college. Please ensure you have uploaded a clear certificate from one of the listed institutions.`
             : 'We could not identify a recognized college from your certificate. Please ensure the uploaded file is clear, high-resolution, and from one of the listed institutions.';
