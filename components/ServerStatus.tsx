@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import LoadingSpinner from './LoadingSpinner';
 
@@ -151,6 +150,9 @@ const ServerStatus: React.FC<ServerStatusProps> = ({ onSetupComplete }) => {
                 <p className="text-sm text-slate-600 mt-2">
                     To use your new Vercel environment variables on your local machine, run this command in your terminal:
                 </p>
+                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-800">
+                    <strong className="font-semibold">Note:</strong> When adding variables in Vercel, make sure to include them in the <strong className="font-semibold">"Development"</strong> environment so this command can access them.
+                </div>
                 <pre className="mt-3 bg-slate-800 text-white p-3 rounded-md text-sm overflow-x-auto">
                     <code>vercel env pull .env.development.local</code>
                 </pre>

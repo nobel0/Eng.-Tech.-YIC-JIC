@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 // FIX: Explicitly import from 'node:' prefixed modules to ensure correct Node.js types are loaded.
 // This resolves errors with 'process.cwd()' and 'Buffer' not being recognized.
@@ -84,6 +84,17 @@ const vercelDevServer = (): Plugin => {
 };
 
 // https://vitejs.dev/config/
-export default defineConfig({
-  plugins: [react(), vercelDevServer()],
+export default defineConfig(({ mode }) => {
+  // Load env file based on `mode` in the current working directory.
+  // The third parameter '' makes it load all env variables, not just VITE_ prefixed ones.
+  const env = loadEnv(mode, cwd(), '');
+
+  // Merge the loaded variables into the current process's environment.
+  // This makes them available to the entire Vite server process, including
+  // the ssrLoadModule context used by our custom vercelDevServer plugin.
+  process.env = {...process.env, ...env};
+
+  return {
+    plugins: [react(), vercelDevServer()],
+  }
 });
