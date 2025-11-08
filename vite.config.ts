@@ -1,9 +1,10 @@
-/// <reference types="node" />
-// FIX: Moved the triple-slash directive to the top of the file. This is a requirement for TypeScript to correctly process the directive and load the necessary type definitions for Node.js, resolving errors with 'process.cwd()'.
+// FIX: Use explicit `node:` imports to resolve TypeScript errors with Node.js globals like `process`
+// when type definitions are not correctly loaded. This avoids conflicts with client-side types.
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { type Plugin } from 'vite';
-import path from 'path';
+import path from 'node:path';
+import { cwd } from 'node:process';
 
 // A Vite plugin to emulate Vercel's serverless functions for local development.
 const vercelDevServer = (): Plugin => {
@@ -17,7 +18,8 @@ const vercelDevServer = (): Plugin => {
         }
 
         const apiPath = url.substring(4).split('?')[0];
-        const filePath = path.resolve(process.cwd(), `api/${apiPath}.ts`);
+        // FIX: Use `cwd()` imported from `node:process` to get the current working directory, resolving the type error on `process.cwd()`.
+        const filePath = path.resolve(cwd(), `api/${apiPath}.ts`);
 
         try {
           // Invalidate the module cache to always get the fresh version
