@@ -22,8 +22,8 @@ export default async function handler(req: Request) {
   
   try {
     // This will throw an error if the required KV_... env vars are not set.
-    // A simple `info` command acts as a connection test.
-    await kv.info();
+    // A simple `get` command acts as a connection test.
+    await kv.get('connection-check');
     isKvConnected = true;
   } catch (error) {
     console.error('KV Connection Check Failed:', error);

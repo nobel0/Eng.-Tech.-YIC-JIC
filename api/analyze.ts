@@ -50,7 +50,7 @@ export default async function handler(req: Request) {
         contents: { parts: [{ text: prompt }, imagePart] },
     });
     
-    const resultText = response.text.trim();
+    const resultText = (response.text ?? '').trim();
     
     const matchedName = (resultText && resultText.toUpperCase() !== 'NOMATCH') ? resultText : null;
 
