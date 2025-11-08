@@ -69,7 +69,8 @@ const App: React.FC = () => {
       }
       const settingsData = await settingsRes.json();
       if (settingsData) {
-          setThemeConfig(settingsData.themeConfig || INITIAL_THEME_CONFIG);
+          // Merge fetched theme config with defaults to ensure all keys are present
+          setThemeConfig({ ...INITIAL_THEME_CONFIG, ...(settingsData.themeConfig || {}) });
           setColleges(settingsData.colleges || INITIAL_COLLEGES);
           setFormFields(settingsData.formFields || INITIAL_FORM_FIELDS);
       } else {
