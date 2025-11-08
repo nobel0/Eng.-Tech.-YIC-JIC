@@ -2,7 +2,10 @@
 // This function will be deployed at the `/api/submissions` endpoint.
 // It manages the list of submissions in the Vercel KV store.
 
-import { kv } from '@vercel/kv';
+// NOTE: We are NOT importing `kv` at the top level.
+// This is to prevent the server from crashing during local development
+// if the Vercel KV environment variables haven't been set up yet.
+
 import type { Submission } from './types';
 
 export const config = {
@@ -19,17 +22,31 @@ export default async function handler(req: Request) {
     });
   };
 
+  // Pre-flight check: Ensure KV environment variables exist before proceeding.
+  if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+    return errorResponse(
+        'Database not configured. Please follow the setup instructions in the Admin Panel.',
+        503 // 503 Service Unavailable is appropriate here.
+    );
+  }
+
   try {
-    // The `kv` object from `@vercel/kv` is automatically configured by Vercel.
+    // Dynamically import `kv` now that we know the environment variables are set.
+    const { kv } = await import('@vercel/kv');
+    
     if (req.method === 'GET') {
-      const submissions = await kv.get<Submission[]>(SUBMISSIONS_KEY) || [];
+      // FIX: Cast the result of kv.get instead of using a generic type argument
+      // to avoid "Untyped function calls may not accept type arguments" error.
+      const submissions = (await kv.get(SUBMISSIONS_KEY)) as Submission[] || [];
       return new Response(JSON.stringify(submissions), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       });
     } else if (req.method === 'POST') {
       const newSubmission: Submission = await req.json();
-      const existingSubmissions = await kv.get<Submission[]>(SUBMISSIONS_KEY) || [];
+      // FIX: Cast the result of kv.get instead of using a generic type argument
+      // to avoid "Untyped function calls may not accept type arguments" error.
+      const existingSubmissions = (await kv.get(SUBMISSIONS_KEY)) as Submission[] || [];
       const updatedSubmissions = [newSubmission, ...existingSubmissions];
       
       await kv.set(SUBMISSIONS_KEY, updatedSubmissions);

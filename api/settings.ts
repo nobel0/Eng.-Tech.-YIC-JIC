@@ -2,7 +2,9 @@
 // This function will be deployed at the `/api/settings` endpoint.
 // It uses Vercel's KV (Key-Value) store to persist settings.
 
-import { kv } from '@vercel/kv';
+// NOTE: We are NOT importing `kv` at the top level.
+// This is to prevent the server from crashing during local development
+// if the Vercel KV environment variables haven't been set up yet.
 
 export const config = {
   runtime: 'edge', // Using the Edge runtime for performance
@@ -16,8 +18,18 @@ export default async function handler(req: Request) {
     });
   };
 
+  // Pre-flight check: Ensure KV environment variables exist before proceeding.
+  if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+    return errorResponse(
+        'Database not configured. Please follow the setup instructions in the Admin Panel.',
+        503 // 503 Service Unavailable is appropriate here.
+    );
+  }
+
   try {
-    // The `kv` object from `@vercel/kv` is automatically configured by Vercel.
+    // Dynamically import `kv` now that we know the environment variables are set.
+    const { kv } = await import('@vercel/kv');
+
     if (req.method === 'GET') {
       const settings = await kv.get('settings');
       return new Response(JSON.stringify(settings), {
