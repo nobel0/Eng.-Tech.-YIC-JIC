@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 import React, { useState, useEffect } from 'react';
 import LoadingSpinner from './LoadingSpinner';
 
@@ -11,6 +13,8 @@ interface ServerStatusState {
 interface ServerStatusProps {
     onSetupComplete: () => void;
 }
+
+const isDevelopment = import.meta.env.DEV;
 
 const StatusRow: React.FC<{ label: string; isOk: boolean; fixInstruction: React.ReactNode; }> = ({ label, isOk, fixInstruction }) => (
     <div className={`p-4 rounded-lg flex items-start gap-4 ${isOk ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border`}>
@@ -125,8 +129,20 @@ const ServerStatus: React.FC<ServerStatusProps> = ({ onSetupComplete }) => {
                                 <p className="text-xs break-words">{status.kvConnectionError}</p>
                             </div>
                         )}
-                        <p>Go to the <strong className="font-semibold">"Storage"</strong> tab in your Vercel project dashboard to connect a KV store.</p>
-                        <strong className="block mt-1">IMPORTANT: After connecting, you must trigger a new deployment for the change to take effect.</strong>
+                        <p>Your application needs a database to store settings and submissions.</p>
+                        <ol className="list-decimal list-inside mt-2 space-y-1 font-medium">
+                            <li>Go to the <span className="font-semibold">"Storage"</span> tab in your Vercel project dashboard.</li>
+                            <li>Create and connect a new <span className="font-semibold">KV (Redis)</span> store.</li>
+                        </ol>
+                        {isDevelopment ? (
+                          <p className="mt-2 text-sm">
+                            After connecting, follow the <strong className="font-semibold">"For Local Development"</strong> instructions below to sync your database credentials.
+                          </p>
+                        ) : (
+                          <p className="mt-2 text-sm">
+                            <strong className="font-semibold">IMPORTANT:</strong> After connecting the database, you must <strong className="font-semibold">trigger a new deployment</strong> for the changes to apply.
+                          </p>
+                        )}
                       </>
                     }
                 />
@@ -151,22 +167,24 @@ const ServerStatus: React.FC<ServerStatusProps> = ({ onSetupComplete }) => {
                 </div>
             )}
            
+            {isDevelopment && (
+                <div className="mt-8 pt-6 border-t border-slate-200">
+                    <h4 className="font-semibold text-slate-800">For Local Development</h4>
+                    <p className="text-sm text-slate-600 mt-2">You appear to be running this app locally. To connect to your Vercel database and use your cloud settings, follow these steps:</p>
 
-            <div className="mt-8 pt-6 border-t border-slate-200">
-                <h4 className="font-semibold text-slate-800">For Local Development</h4>
-                <p className="text-sm text-slate-600 mt-2">
-                    To use your new Vercel environment variables on your local machine, run this command in your terminal:
-                </p>
-                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-800">
-                    <strong className="font-semibold">Note:</strong> When adding variables in Vercel, make sure to include them in the <strong className="font-semibold">"Development"</strong> environment so this command can access them.
+                    <ol className="list-decimal list-inside mt-3 space-y-2 text-sm text-slate-600">
+                        <li>Make sure you have created and connected the KV store and set all other environment variables in your Vercel project settings (as described above).</li>
+                        <li>In your Vercel project settings, ensure the variables are available for the <strong className="font-semibold">"Development"</strong> environment.</li>
+                        <li>Open your terminal in the project folder and run this command:</li>
+                    </ol>
+                    <pre className="mt-2 bg-slate-800 text-white p-3 rounded-md text-sm overflow-x-auto">
+                        <code>vercel env pull .env.development.local</code>
+                    </pre>
+                    <p className="text-sm text-slate-600 mt-3 font-bold text-red-600 bg-red-50 p-3 rounded-md border border-red-200">
+                        CRITICAL: After the command completes successfully, you must <strong className="font-semibold">stop and restart your local development server</strong> for the new settings to load.
+                    </p>
                 </div>
-                <pre className="mt-3 bg-slate-800 text-white p-3 rounded-md text-sm overflow-x-auto">
-                    <code>vercel env pull .env.development.local</code>
-                </pre>
-                <p className="text-sm text-slate-600 mt-2">
-                    After running the command, you must <strong className="font-semibold">restart your local development server</strong>.
-                </p>
-            </div>
+            )}
         </div>
     );
 };
