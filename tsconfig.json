@@ -18,6 +18,7 @@
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true
   },
-  "include": ["types.ts", "constants.ts", "services", "components", "api", "App.tsx", "index.tsx"],
+  "include": ["types.ts", "constants.ts", "services", "components", "App.tsx", "index.tsx"],
+  "exclude": ["api", "node_modules", "dist"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
