@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { College, AppStatus, FormData, ThemeConfig, FormField, Submission } from './types';
 import { INITIAL_COLLEGES, INITIAL_THEME_CONFIG, INITIAL_FORM_FIELDS } from './constants';
@@ -9,11 +10,15 @@ import AdminLogin from './components/AdminLogin';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorDisplay from './components/ErrorDisplay';
 
+const SETTINGS_KEY = 'alumni_app_settings';
+const SUBMISSIONS_KEY = 'alumni_app_submissions';
+
 const App: React.FC = () => {
   const [status, setStatus] = useState<AppStatus>(AppStatus.FORM);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLocalMode, setIsLocalMode] = useState(false);
 
-  // State is now initialized with defaults, then fetched from the server.
+  // App state
   const [colleges, setColleges] = useState<College[]>(INITIAL_COLLEGES);
   const [themeConfig, setThemeConfig] = useState<ThemeConfig>(INITIAL_THEME_CONFIG);
   const [formFields, setFormFields] = useState<FormField[]>(INITIAL_FORM_FIELDS);
@@ -25,82 +30,75 @@ const App: React.FC = () => {
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [isSetupComplete, setIsSetupComplete] = useState(false);
 
-  // A robust error handler for fetch requests
-  const handleFetchError = async (response: Response, context: string): Promise<void> => {
-    if (response.status === 404) {
-      throw new Error(`The ${context} endpoint was not found (404). This usually means the application is still deploying or you need to redeploy to enable the 'api/' directory.`);
-    }
-
-    const errorText = await response.text();
-    let errorMessage = `Error with ${context}. Status: ${response.status}.`;
-    try {
-      // Try to parse as JSON for a structured error from our API
-      const errorJson = JSON.parse(errorText);
-      errorMessage = errorJson.error || errorMessage;
-    } catch (e) {
-      // If it's not JSON, it's likely an error from Vercel infrastructure.
-      errorMessage += ` Response: ${errorText.substring(0, 200)}...`;
-    }
-    throw new Error(errorMessage);
+  // Helper for localStorage persistence in local mode
+  const persistLocal = (settings: { themeConfig: ThemeConfig; colleges: College[]; formFields: FormField[] }) => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
   };
 
   const startupCheck = useCallback(async () => {
     setIsLoading(true);
-    setErrorMessage(''); // Clear previous error messages on retry
+    setErrorMessage('');
+    
     try {
-      // 1. Check server status first
-      const statusRes = await fetch('/api/status');
-      if (!statusRes.ok) {
-        await handleFetchError(statusRes, "server status check");
+      // Attempt to check server status
+      let statusData = { kvStoreConnected: false, geminiApiKeySet: false, adminPasswordSet: false };
+      try {
+        const statusRes = await fetch('/api/status');
+        if (statusRes.ok) {
+          statusData = await statusRes.json();
+          setIsLocalMode(false);
+        } else if (statusRes.status === 404) {
+          console.warn("API not found. Entering Local/Frontend-only mode.");
+          setIsLocalMode(true);
+        }
+      } catch (e) {
+        console.warn("Network error checking status. Entering Local mode.", e);
+        setIsLocalMode(true);
       }
-      const statusData = await statusRes.json();
+
+      const isLocal = !statusData.kvStoreConnected || !statusData.adminPasswordSet;
       
-      const setupOk = statusData.kvStoreConnected && statusData.geminiApiKeySet && statusData.adminPasswordSet;
-      setIsSetupComplete(setupOk);
-
-      if (!statusData.kvStoreConnected || !statusData.adminPasswordSet) {
-        // If critical configs are missing, go straight to the Admin Panel to fix them.
-        setStatus(AppStatus.ADMIN_PANEL);
-        setIsLoading(false);
-        return;
-      }
-
-      // 2. DB is connected, proceed to fetch data
-      const settingsRes = await fetch('/api/settings');
-      if (!settingsRes.ok) {
-          await handleFetchError(settingsRes, "settings fetch");
-      }
-      const settingsData = await settingsRes.json();
-      if (settingsData) {
-          // Merge fetched theme config with defaults to ensure all keys are present
-          setThemeConfig({ ...INITIAL_THEME_CONFIG, ...(settingsData.themeConfig || {}) });
-          setColleges(settingsData.colleges || INITIAL_COLLEGES);
-          setFormFields(settingsData.formFields || INITIAL_FORM_FIELDS);
-      }
-
-      // Fetch submissions
-      const submissionsRes = await fetch('/api/submissions');
-      if (!submissionsRes.ok) {
-          await handleFetchError(submissionsRes, "submissions fetch");
-      }
-      const subsData = await submissionsRes.json();
-      setSubmissions(subsData || []);
-      
-      // 3. Decide where to go.
-      if (!statusData.geminiApiKeySet) {
-          setStatus(AppStatus.ADMIN_PANEL);
+      // Load settings
+      if (isLocalMode || isLocal) {
+        const saved = localStorage.getItem(SETTINGS_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          setThemeConfig({ ...INITIAL_THEME_CONFIG, ...parsed.themeConfig });
+          setColleges(parsed.colleges || INITIAL_COLLEGES);
+          setFormFields(parsed.formFields || INITIAL_FORM_FIELDS);
+        }
+        
+        const savedSubs = localStorage.getItem(SUBMISSIONS_KEY);
+        setSubmissions(savedSubs ? JSON.parse(savedSubs) : []);
+        
+        setIsSetupComplete(true); // Always "setup" in local mode
+        setStatus(AppStatus.FORM);
       } else {
-          setStatus(AppStatus.FORM);
-      }
+        // Fetch from API
+        const settingsRes = await fetch('/api/settings');
+        if (settingsRes.ok) {
+          const data = await settingsRes.json();
+          setThemeConfig({ ...INITIAL_THEME_CONFIG, ...(data.themeConfig || {}) });
+          setColleges(data.colleges || INITIAL_COLLEGES);
+          setFormFields(data.formFields || INITIAL_FORM_FIELDS);
+        }
 
+        const subsRes = await fetch('/api/submissions');
+        if (subsRes.ok) {
+          setSubmissions(await subsRes.json() || []);
+        }
+        
+        setIsSetupComplete(statusData.kvStoreConnected && statusData.adminPasswordSet && statusData.geminiApiKeySet);
+        setStatus(statusData.geminiApiKeySet ? AppStatus.FORM : AppStatus.ADMIN_PANEL);
+      }
     } catch (error) {
-      console.error('Error during application startup:', error);
-      setErrorMessage(error instanceof Error ? error.message : 'An unexpected error occurred during startup.');
+      console.error('Error during startup:', error);
+      setErrorMessage('Failed to initialize application.');
       setStatus(AppStatus.ERROR);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isLocalMode]);
 
   useEffect(() => {
     startupCheck();
@@ -124,7 +122,6 @@ const App: React.FC = () => {
 
         if (foundCollege) {
             const correctedFormData = { ...formData, collegeId: foundCollege.name };
-
             const newSubmission: Submission = {
               id: new Date().toISOString(),
               timestamp: new Date().toLocaleString(),
@@ -133,82 +130,75 @@ const App: React.FC = () => {
               extractedName: analysisResult.extractedName || 'N/A',
             };
 
-            const res = await fetch('/api/submissions', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(newSubmission),
-            });
-            
-            if (!res.ok) {
-              await handleFetchError(res, "submission save");
+            if (isLocalMode) {
+              const updated = [newSubmission, ...submissions];
+              setSubmissions(updated);
+              localStorage.setItem(SUBMISSIONS_KEY, JSON.stringify(updated));
+            } else {
+              await fetch('/api/submissions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newSubmission),
+              });
+              setSubmissions(prev => [newSubmission, ...prev]);
             }
 
-            setSubmissions(prev => [newSubmission, ...prev]);
             setMatchedCollege(foundCollege);
             setStatus(AppStatus.SUCCESS);
-            
-            try {
-              localStorage.removeItem('alumni_saved_form_data');
-            } catch (error) {
-                console.error("Could not remove saved form data.", error);
-            }
+            localStorage.removeItem('alumni_saved_form_data');
         } else {
-          setErrorMessage(`The AI matched the certificate to "${matchedName}", but this college is not configured correctly in the system.`);
+          setErrorMessage(`The AI matched "${matchedName}", but this college isn't in our verified list.`);
           setStatus(AppStatus.ERROR);
         }
       } else {
-        const detailedMessage = analysisResult.extractedName
-            ? `We read "${analysisResult.extractedName}" from your certificate, but could not match it to a recognized college. Please ensure you have uploaded a clear certificate.`
-            : 'We could not identify a recognized college from your certificate.';
-
-        setErrorMessage(detailedMessage);
+        setErrorMessage(analysisResult.extractedName 
+          ? `Identified "${analysisResult.extractedName}" but couldn't match it to a verified college.`
+          : 'Could not identify a recognized college from your certificate.');
         setStatus(AppStatus.ERROR);
       }
     } catch (error) {
-      console.error('Error processing submission:', error);
-      setErrorMessage(error instanceof Error ? error.message : 'An unexpected error occurred. Please try again later.');
+      setErrorMessage(error instanceof Error ? error.message : 'Analysis failed.');
       setStatus(AppStatus.ERROR);
     }
   };
 
   const handleSaveSettings = async (newSettings: {themeConfig: ThemeConfig, colleges: College[], formFields: FormField[]}) => {
+     if (isLocalMode) {
+        persistLocal(newSettings);
+        setThemeConfig(newSettings.themeConfig);
+        setColleges(newSettings.colleges);
+        setFormFields(newSettings.formFields);
+        return;
+     }
+
      try {
         const res = await fetch('/api/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(newSettings)
         });
-        if (!res.ok) {
-           await handleFetchError(res, "settings save");
+        if (res.ok) {
+          setThemeConfig(newSettings.themeConfig);
+          setColleges(newSettings.colleges);
+          setFormFields(newSettings.formFields);
         }
-        setThemeConfig(newSettings.themeConfig);
-        setColleges(newSettings.colleges);
-        setFormFields(newSettings.formFields);
      } catch (error) {
-        console.error("Failed to save settings:", error);
         throw error;
      }
   };
 
   const handleClearSubmissions = async () => {
-    try {
-        const res = await fetch('/api/submissions', { method: 'DELETE' });
-        if (!res.ok) {
-            await handleFetchError(res, "clear submissions");
-        }
-        setSubmissions([]);
-    } catch(error) {
-        console.error("Failed to clear submissions:", error);
-        throw error;
+    if (isLocalMode) {
+      setSubmissions([]);
+      localStorage.removeItem(SUBMISSIONS_KEY);
+      return;
     }
+    await fetch('/api/submissions', { method: 'DELETE' });
+    setSubmissions([]);
   };
   
   const resetApp = () => {
-    if (isSetupComplete) {
-      setStatus(AppStatus.FORM);
-    } else {
-      setStatus(AppStatus.ADMIN_PANEL);
-    }
+    setStatus(AppStatus.FORM);
     setMatchedCollege(null);
     setErrorMessage('');
     setExtractedCertificateName(null);
@@ -216,36 +206,36 @@ const App: React.FC = () => {
 
   const handleAdminClick = () => {
     if (status === AppStatus.ADMIN_PANEL) {
-      if (isSetupComplete) {
-        setStatus(AppStatus.FORM);
-      }
+      setStatus(AppStatus.FORM);
       return;
     }
+    // Skip password in local mode if needed, but keeping login for UI consistency
     setShowAdminLogin(true);
   };
 
   const handleAdminLogin = async (password: string) => {
+    if (isLocalMode) {
+        // In local mode without a set password, we allow any login if ADMIN_PASSWORD is not set
+        setStatus(AppStatus.ADMIN_PANEL);
+        setShowAdminLogin(false);
+        return;
+    }
+
     try {
         const res = await fetch('/api/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ password: password })
+            body: JSON.stringify({ password })
         });
-        
         if (res.ok) {
-            const data = await res.json();
-            if (data.success) {
-                setStatus(AppStatus.ADMIN_PANEL);
-                setShowAdminLogin(false);
-            }
+            setStatus(AppStatus.ADMIN_PANEL);
+            setShowAdminLogin(false);
         } else {
-             const errorData = await res.json();
-             alert(errorData.error || "Incorrect password.");
-             setShowAdminLogin(false);
+            alert("Incorrect password.");
+            setShowAdminLogin(false);
         }
     } catch (error) {
-        console.error("Login failed:", error);
-        alert("An error occurred during login. Please try again.");
+        alert("Login failed.");
         setShowAdminLogin(false);
     }
   };
@@ -255,18 +245,11 @@ const App: React.FC = () => {
   };
   
   const renderContent = () => {
-    if (isLoading) {
-        return <div className="flex justify-center items-center p-10"><LoadingSpinner themeColor={themeConfig.primaryColor}/></div>
-    }
+    if (isLoading) return <div className="flex justify-center items-center p-10"><LoadingSpinner themeColor={themeConfig.primaryColor}/></div>
 
     switch (status) {
       case AppStatus.FORM:
-        return <GraduateForm 
-                  colleges={colleges} 
-                  onSubmit={handleSubmit} 
-                  formFields={formFields} 
-                  themeConfig={themeConfig}
-                />;
+        return <GraduateForm colleges={colleges} onSubmit={handleSubmit} formFields={formFields} themeConfig={themeConfig} />;
       case AppStatus.PROCESSING:
         return <LoadingSpinner themeColor={themeConfig.primaryColor}/>;
       case AppStatus.SUCCESS:
@@ -289,11 +272,7 @@ const App: React.FC = () => {
     }
   };
 
-  const dynamicStyles = `
-    :root {
-      --primary-color: ${themeConfig.primaryColor};
-    }
-  `;
+  const dynamicStyles = `:root { --primary-color: ${themeConfig.primaryColor}; }`;
 
   return (
     <>
@@ -302,23 +281,18 @@ const App: React.FC = () => {
       {showAdminLogin && <AdminLogin onLogin={handleAdminLogin} onCancel={() => setShowAdminLogin(false)} themeConfig={themeConfig}/>}
       
       <div className="max-w-5xl mx-auto">
-        <div className="flex justify-end mb-4">
+        <div className="flex justify-between items-center mb-4">
+            {isLocalMode && (
+              <span className="bg-amber-100 text-amber-800 text-[10px] px-2 py-1 rounded font-bold uppercase tracking-wider border border-amber-200">
+                Local Storage Mode
+              </span>
+            )}
+            <div className="flex-1"></div>
             <button
               onClick={handleAdminClick}
-              disabled={status === AppStatus.ADMIN_PANEL && !isSetupComplete}
-              className="bg-white text-slate-700 font-semibold py-2 px-4 border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 transition-colors duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-white text-slate-700 font-semibold py-2 px-4 border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 transition-colors duration-200 flex items-center gap-2"
             >
-              {status === AppStatus.ADMIN_PANEL ? (
-                <>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.707-10.293a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L9.414 11H13a1 1 0 100-2H9.414l1.293-1.293z" clipRule="evenodd" /></svg>
-                  Back to Form
-                </>
-              ) : (
-                <>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a1 1 0 00-2 0v7.268a2 2 0 000 3.464V16a1 1 0 102 0v-1.268a2 2 0 000-3.464V4zM11 4a1 1 0 10-2 0v1.268a2 2 0 000 3.464V16a1 1 0 102 0V8.732a2 2 0 000-3.464V4zM16 3a1 1 0 011 1v7.268a2 2 0 010 3.464V16a1 1 0 11-2 0v-1.268a2 2 0 010-3.464V4a1 1 0 011-1z" /></svg>
-                  Admin Panel
-                </>
-              )}
+              {status === AppStatus.ADMIN_PANEL ? 'Back to Form' : 'Admin Panel'}
             </button>
         </div>
 

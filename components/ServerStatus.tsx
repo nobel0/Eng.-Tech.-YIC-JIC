@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import LoadingSpinner from './LoadingSpinner';
 
@@ -142,7 +143,7 @@ const ServerStatus: React.FC<ServerStatusProps> = ({ onSetupComplete }) => {
                             <h5 className="font-bold text-slate-900 mb-2">How to Fix:</h5>
                             <ol className="list-decimal list-outside ml-4 space-y-3">
                                 <li>Log in to <a href="https://console.upstash.com" target="_blank" className="text-indigo-600 font-medium underline">Upstash Console</a> and copy your REST credentials.</li>
-                                <li>Go to your project in <span className="font-semibold">Vercel > Settings > Environment Variables</span>.</li>
+                                <li>Go to your project in <span className="font-semibold">Vercel &gt; Settings &gt; Environment Variables</span>.</li>
                                 <li>Update <code>KV_REST_API_URL</code> and <code>KV_REST_API_TOKEN</code>.</li>
                                 <li><strong className="text-red-600">IMPORTANT:</strong> You must <span className="underline">redeploy</span> the project for these changes to take effect.</li>
                             </ol>
