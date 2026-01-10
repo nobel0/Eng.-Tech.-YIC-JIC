@@ -134,8 +134,8 @@ const ServerStatus: React.FC<ServerStatusProps> = ({ onSetupComplete }) => {
                         <div className="p-3 bg-white rounded border border-red-200 space-y-2">
                             <p className="font-semibold text-slate-800 text-xs uppercase tracking-wider">Required Environment Variables:</p>
                             <div className="flex flex-wrap gap-2">
-                                <EnvVarBadge name="KV_REST_API_URL" exists={status.kvEnvVarsSet} />
-                                <EnvVarBadge name="KV_REST_API_TOKEN" exists={status.kvEnvVarsSet} />
+                                <EnvVarBadge name="KV2_KV_REST_API_URL" exists={status.kvEnvVarsSet} />
+                                <EnvVarBadge name="KV2_KV_REST_API_TOKEN" exists={status.kvEnvVarsSet} />
                             </div>
                         </div>
                         
@@ -144,7 +144,7 @@ const ServerStatus: React.FC<ServerStatusProps> = ({ onSetupComplete }) => {
                             <ol className="list-decimal list-outside ml-4 space-y-3">
                                 <li>Log in to <a href="https://console.upstash.com" target="_blank" className="text-indigo-600 font-medium underline">Upstash Console</a> and copy your REST credentials.</li>
                                 <li>Go to your project in <span className="font-semibold">Vercel &gt; Settings &gt; Environment Variables</span>.</li>
-                                <li>Update <code>KV_REST_API_URL</code> and <code>KV_REST_API_TOKEN</code>.</li>
+                                <li>Update <code>KV2_KV_REST_API_URL</code> and <code>KV2_KV_REST_API_TOKEN</code>.</li>
                                 <li><strong className="text-red-600">IMPORTANT:</strong> You must <span className="underline">redeploy</span> the project for these changes to take effect.</li>
                             </ol>
                         </div>

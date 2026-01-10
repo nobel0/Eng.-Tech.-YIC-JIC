@@ -1,4 +1,5 @@
-import { kv } from '@vercel/kv';
+
+import { createClient } from '@vercel/kv';
 
 export const config = {
   runtime: 'edge',
@@ -13,23 +14,29 @@ export default async function handler(req: Request) {
   }
 
   // Check env vars first without calling KV to avoid initialization crashes
+  // Updated to use KV2_ prefix as requested
   const { 
     ADMIN_PASSWORD, 
     API_KEY, 
-    KV_REST_API_URL, 
-    KV_REST_API_TOKEN 
+    KV2_KV_REST_API_URL, 
+    KV2_KV_REST_API_TOKEN 
   } = process.env;
 
   const adminPasswordSet = !!ADMIN_PASSWORD;
   const geminiApiKeySet = !!API_KEY;
-  const kvEnvVarsSet = !!(KV_REST_API_URL && KV_REST_API_TOKEN);
+  const kvEnvVarsSet = !!(KV2_KV_REST_API_URL && KV2_KV_REST_API_TOKEN);
 
   let isKvConnected = false;
   let kvConnectionError: string | null = null;
   
   if (kvEnvVarsSet) {
     try {
-      // Test connection only if vars exist
+      // Create an explicit client to test the KV2 variables
+      const kv = createClient({
+        url: KV2_KV_REST_API_URL!,
+        token: KV2_KV_REST_API_TOKEN!,
+      });
+      // Test connection
       await kv.get('connection-check');
       isKvConnected = true;
     } catch (error) {
@@ -38,7 +45,7 @@ export default async function handler(req: Request) {
       kvConnectionError = error instanceof Error ? error.message : String(error);
     }
   } else {
-    kvConnectionError = "KV environment variables are missing. The database may have been archived or deleted.";
+    kvConnectionError = "KV2 environment variables are missing. Please ensure KV2_KV_REST_API_URL and KV2_KV_REST_API_TOKEN are set.";
   }
 
   const status = {

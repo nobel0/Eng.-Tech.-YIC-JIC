@@ -1,4 +1,10 @@
-import { kv } from '@vercel/kv';
+
+import { createClient } from '@vercel/kv';
+
+const kv = createClient({
+  url: process.env.KV2_KV_REST_API_URL!,
+  token: process.env.KV2_KV_REST_API_TOKEN!,
+});
 
 export const config = {
   runtime: 'edge', // Using the Edge runtime for performance

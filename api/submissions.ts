@@ -1,5 +1,11 @@
-import { kv } from '@vercel/kv';
+
+import { createClient } from '@vercel/kv';
 import type { Submission } from './types';
+
+const kv = createClient({
+  url: process.env.KV2_KV_REST_API_URL!,
+  token: process.env.KV2_KV_REST_API_TOKEN!,
+});
 
 export const config = {
   runtime: 'edge',
