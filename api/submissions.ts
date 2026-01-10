@@ -1,5 +1,5 @@
 import { kv } from '@vercel/kv';
-import type { Submission } from '../types';
+import type { Submission } from './types';
 
 export const config = {
   runtime: 'edge',

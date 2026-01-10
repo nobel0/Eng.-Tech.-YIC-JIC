@@ -12,31 +12,41 @@ export default async function handler(req: Request) {
     });
   }
 
-  const { ADMIN_PASSWORD, API_KEY } = process.env;
+  // Check env vars first without calling KV to avoid initialization crashes
+  const { 
+    ADMIN_PASSWORD, 
+    API_KEY, 
+    KV_REST_API_URL, 
+    KV_REST_API_TOKEN 
+  } = process.env;
 
   const adminPasswordSet = !!ADMIN_PASSWORD;
   const geminiApiKeySet = !!API_KEY;
+  const kvEnvVarsSet = !!(KV_REST_API_URL && KV_REST_API_TOKEN);
 
   let isKvConnected = false;
   let kvConnectionError: string | null = null;
   
-  try {
-    // This will throw an error if the required KV_... env vars are not set.
-    // A simple `get` command acts as a connection test.
-    await kv.get('connection-check');
-    isKvConnected = true;
-  } catch (error) {
-    console.error('KV Connection Check Failed:', error);
-    isKvConnected = false;
-    kvConnectionError = error instanceof Error ? error.message : String(error);
+  if (kvEnvVarsSet) {
+    try {
+      // Test connection only if vars exist
+      await kv.get('connection-check');
+      isKvConnected = true;
+    } catch (error) {
+      console.error('KV Connection Check Failed:', error);
+      isKvConnected = false;
+      kvConnectionError = error instanceof Error ? error.message : String(error);
+    }
+  } else {
+    kvConnectionError = "KV environment variables are missing. The database may have been archived or deleted.";
   }
-
 
   const status = {
     kvStoreConnected: isKvConnected,
     adminPasswordSet,
     geminiApiKeySet,
-    kvConnectionError, // Pass the specific error message to the frontend
+    kvConnectionError,
+    kvEnvVarsSet
   };
 
   return new Response(JSON.stringify(status), {

@@ -5,6 +5,7 @@ interface ServerStatusState {
   kvStoreConnected: boolean;
   adminPasswordSet: boolean;
   geminiApiKeySet: boolean;
+  kvEnvVarsSet: boolean;
   kvConnectionError?: string | null;
 }
 
@@ -13,18 +14,22 @@ interface ServerStatusProps {
 }
 
 const StatusRow: React.FC<{ label: string; isOk: boolean; fixInstruction: React.ReactNode; }> = ({ label, isOk, fixInstruction }) => (
-    <div className={`p-4 rounded-lg flex items-start gap-4 ${isOk ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border`}>
-        <div className="flex-shrink-0">
+    <div className={`p-4 rounded-lg flex items-start gap-4 ${isOk ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'} border transition-all duration-300`}>
+        <div className="flex-shrink-0 mt-1">
             {isOk ? (
-                <svg className="h-6 w-6 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <div className="bg-green-100 p-1 rounded-full">
+                    <svg className="h-5 w-5 text-green-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                </div>
             ) : (
-                <svg className="h-6 w-6 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                <div className="bg-red-100 p-1 rounded-full">
+                    <svg className="h-5 w-5 text-red-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                </div>
             )}
         </div>
-        <div>
-            <h4 className="font-semibold text-slate-800">{label}</h4>
-            <div className={`text-sm ${isOk ? 'text-slate-600' : 'text-red-700'}`}>
-                {isOk ? 'Configured correctly.' : fixInstruction}
+        <div className="flex-1">
+            <h4 className={`font-bold ${isOk ? 'text-green-800' : 'text-red-800'}`}>{label}</h4>
+            <div className={`text-sm mt-1 ${isOk ? 'text-green-700' : 'text-red-700'}`}>
+                {isOk ? 'Successfully configured and connected.' : fixInstruction}
             </div>
         </div>
     </div>
@@ -37,8 +42,6 @@ const ServerStatus: React.FC<ServerStatusProps> = ({ onSetupComplete }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [wasEverIncomplete, setWasEverIncomplete] = useState(false);
 
-    // Determine if running in a local development environment at runtime.
-    // This is more robust than a build-time flag for preview environments.
     const isDevelopment = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
     const fetchStatus = async () => {
@@ -48,7 +51,7 @@ const ServerStatus: React.FC<ServerStatusProps> = ({ onSetupComplete }) => {
             const res = await fetch('/api/status');
             if (!res.ok) {
                 const errorText = await res.text();
-                throw new Error(`Failed to fetch server status. Server responded with: ${errorText}`);
+                throw new Error(`API unreachable. Vercel error: ${errorText.substring(0, 100)}`);
             }
             const data: ServerStatusState = await res.json();
             setStatus(data);
@@ -59,7 +62,6 @@ const ServerStatus: React.FC<ServerStatusProps> = ({ onSetupComplete }) => {
                 setWasEverIncomplete(true);
             }
 
-            // Only trigger reload if we started in a bad state and are now in a good one.
             if (wasEverIncomplete && isNowComplete) {
                 onSetupComplete();
             }
@@ -76,121 +78,106 @@ const ServerStatus: React.FC<ServerStatusProps> = ({ onSetupComplete }) => {
     }, []);
 
     if (isLoading) {
-        return <div className="flex justify-center py-8"><LoadingSpinner themeColor="#4f46e5" /></div>;
+        return <div className="flex justify-center py-12"><LoadingSpinner themeColor="#4f46e5" /></div>;
     }
 
     if (error) {
         return (
-            <div className="text-center space-y-4">
-                <h3 className="text-xl font-bold text-slate-800">Error Checking Status</h3>
-                <p className="text-red-600 bg-red-50 p-4 rounded-md">{error}</p>
-                <button onClick={fetchStatus} className="py-2 px-6 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
-                    Retry
-                </button>
+            <div className="text-center space-y-6 py-8">
+                <div className="bg-red-50 border border-red-200 p-6 rounded-xl inline-block max-w-md mx-auto">
+                    <h3 className="text-xl font-bold text-red-800 mb-2">Connection Blocked</h3>
+                    <p className="text-red-600 mb-4">{error}</p>
+                    <p className="text-sm text-red-500 mb-6 italic text-left">Note: This often happens if your Vercel deployment failed or if environment variables are completely missing.</p>
+                    <button onClick={fetchStatus} className="w-full py-3 px-6 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors">
+                        Retry Connection
+                    </button>
+                </div>
             </div>
         );
     }
 
-    if (!status) {
-        return <div className="text-center text-slate-500">Could not load server status.</div>;
-    }
+    if (!status) return null;
 
     const allOk = status.kvStoreConnected && status.adminPasswordSet && status.geminiApiKeySet;
 
     return (
-        <div className="space-y-6">
-             <div className="text-center">
-                <h3 className="text-xl font-bold text-slate-800">Application Setup & Status</h3>
-                 {!allOk && <p className="text-slate-500 mt-1">Follow the steps below to complete your application setup.</p>}
+        <div className="space-y-8 animate-in fade-in duration-500">
+             <div className="text-center border-b border-slate-200 pb-6">
+                <h3 className="text-2xl font-black text-slate-800 tracking-tight">System Configuration</h3>
+                 {!allOk && <p className="text-slate-500 mt-2">Required steps to restore application functionality.</p>}
             </div>
             
-            {allOk ? (
-                 <div className="p-4 rounded-lg bg-green-50 border-green-200 border text-center">
-                    <h4 className="font-semibold text-green-800">All systems operational.</h4>
-                    <p className="text-sm text-green-700">Your application is configured correctly and is fully functional.</p>
-                 </div>
-            ) : (
-                <div className="p-4 rounded-lg bg-yellow-50 border-yellow-200 border text-center">
-                    <h4 className="font-semibold text-yellow-800">Action Required</h4>
-                    <p className="text-sm text-yellow-700">One or more configurations are missing. Please follow the instructions below.</p>
+            {!allOk && (
+                <div className="p-5 rounded-xl bg-amber-50 border-2 border-amber-200 text-center shadow-sm">
+                    <h4 className="font-bold text-amber-800 text-lg">Action Required</h4>
+                    <p className="text-sm text-amber-700 mt-1">The application cannot run until the following services are reconnected.</p>
                  </div>
             )}
 
-
-            <div className="space-y-4">
+            <div className="space-y-5">
                 <StatusRow 
                     label="Vercel KV Database"
                     isOk={status.kvStoreConnected}
                     fixInstruction={
-                      <>
-                        {status.kvConnectionError && (
-                            <div className="mb-3 p-3 bg-red-100 border-l-4 border-red-500 text-red-800">
-                                <p className="font-bold">Connection Error:</p>
-                                <p className="text-xs break-words">{status.kvConnectionError}</p>
-                            </div>
-                        )}
-                        <p>Your application requires a Redis database. Follow these steps carefully:</p>
-                        <ol className="list-decimal list-inside mt-2 space-y-2">
-                            <li>Go to the <span className="font-semibold">"Storage"</span> tab in your Vercel project dashboard.</li>
-                            <li>Find <strong className="font-semibold">Upstash (Serverless DB)</strong> and click the dropdown/arrow.</li>
-                            <li>From the sub-options, click <strong className="font-semibold">Create</strong> next to <strong className="font-semibold">Upstash for Redis</strong>.</li>
-                            <li>On the final <strong className="font-semibold">"Create Database"</strong> screen:
-                                <ul className="list-disc list-inside ml-4 mt-1 text-slate-800">
-                                    <li>Leave the regions as their defaults (they are fine).</li>
-                                    <li>Select the <strong className="font-semibold">Free</strong> plan.</li>
-                                    <li><strong className="text-red-600">IMPORTANT:</strong> Leave the <strong className="font-semibold">"Eviction"</strong> toggle OFF. Enabling it will delete your data automatically.</li>
-                                    <li>Click <strong className="font-semibold">Create</strong> to finish.</li>
-                                </ul>
-                            </li>
-                        </ol>
-                        {isDevelopment ? (
-                          <p className="mt-2 text-sm">
-                            After connecting, follow the <strong className="font-semibold">"For Local Development"</strong> instructions below to sync your database credentials.
-                          </p>
-                        ) : (
-                          <p className="mt-2 text-sm">
-                            <strong className="font-semibold">IMPORTANT:</strong> After connecting the database, you must <strong className="font-semibold">trigger a new deployment</strong> for the changes to apply.
-                          </p>
-                        )}
-                      </>
+                      <div className="space-y-4">
+                        <p className="font-medium text-red-800 bg-red-100 p-3 rounded border border-red-200">
+                           {status.kvEnvVarsSet 
+                             ? "Connection test failed. The database might be archived or the credentials expired." 
+                             : "Database credentials (KV_URL, etc.) are missing entirely."}
+                        </p>
+                        
+                        <div className="bg-white p-4 rounded-lg border border-red-200 shadow-sm">
+                            <h5 className="font-bold text-slate-800 mb-2">How to reconnect:</h5>
+                            <ol className="list-decimal list-outside ml-4 space-y-3 text-slate-700">
+                                <li>Open your <span className="font-semibold">Vercel Project Dashboard</span>.</li>
+                                <li>Navigate to the <span className="font-semibold">"Storage"</span> tab.</li>
+                                <li>If you see an archived KV store, you must <span className="font-bold">create a NEW Upstash for Redis</span> instance.</li>
+                                <li>Ensure the new store is <span className="font-semibold">connected</span> to this project.</li>
+                                <li><strong className="text-red-600">IMPORTANT:</strong> After connecting the new DB, you MUST redeploy the app or go to <span className="font-semibold text-slate-900">Settings > Deployment</span> and trigger a fresh build to load the new environment variables.</li>
+                            </ol>
+                        </div>
+                      </div>
                     }
                 />
                 <StatusRow 
-                    label="Gemini API Key"
+                    label="Gemini AI (Vision API)"
                     isOk={status.geminiApiKeySet}
-                    fixInstruction={<>Go to <strong className="font-semibold">"Settings"</strong> &gt; <strong className="font-semibold">"Environment Variables"</strong> in Vercel and add a variable named <code className="text-xs bg-red-100 p-1 rounded">API_KEY</code> with your Gemini key.</>}
+                    fixInstruction={
+                        <div className="p-3 bg-white rounded border border-red-200">
+                            Add a variable named <code className="bg-slate-100 px-2 py-0.5 rounded text-red-600 font-mono">API_KEY</code> in Vercel Environment Variables.
+                        </div>
+                    }
                 />
                 <StatusRow 
-                    label="Admin Password"
+                    label="Admin Security"
                     isOk={status.adminPasswordSet}
-                    fixInstruction={<>Go to <strong className="font-semibold">"Settings"</strong> &gt; <strong className="font-semibold">"Environment Variables"</strong> in Vercel and add a variable named <code className="text-xs bg-red-100 p-1 rounded">ADMIN_PASSWORD</code>. This will be the password for the admin panel.</>}
+                    fixInstruction={
+                        <div className="p-3 bg-white rounded border border-red-200">
+                            Add a variable named <code className="bg-slate-100 px-2 py-0.5 rounded text-red-600 font-mono">ADMIN_PASSWORD</code> for dashboard access.
+                        </div>
+                    }
                 />
             </div>
 
-            {!allOk && (
-                 <div className="text-center pt-4">
-                    <p className="text-slate-500 text-sm mb-4">After you've updated the settings in Vercel, click the button below to check again.</p>
-                    <button onClick={fetchStatus} className="py-2 px-6 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                        I've updated my settings, check again
-                    </button>
-                </div>
-            )}
+            <div className="text-center pt-6">
+                <button onClick={fetchStatus} className="inline-flex items-center gap-2 py-3 px-8 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition-all hover:scale-105 active:scale-95">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                    Refresh Configuration Status
+                </button>
+            </div>
            
             {isDevelopment && (
-                <div className="mt-8 pt-6 border-t border-slate-200">
-                    <h4 className="font-semibold text-slate-800">For Local Development</h4>
-                    <p className="text-sm text-slate-600 mt-2">You appear to be running this app locally. To connect to your Vercel database and use your cloud settings, follow these steps:</p>
-
-                    <ol className="list-decimal list-inside mt-3 space-y-2 text-sm text-slate-600">
-                        <li>Make sure you have created and connected the KV store and set all other environment variables in your Vercel project settings (as described above).</li>
-                        <li>In your Vercel project settings, ensure the variables are available for the <strong className="font-semibold">"Development"</strong> environment.</li>
-                        <li>Open your terminal in the project folder and run this command:</li>
-                    </ol>
-                    <pre className="mt-2 bg-slate-800 text-white p-3 rounded-md text-sm overflow-x-auto">
-                        <code>vercel env pull .env.development.local</code>
-                    </pre>
-                    <p className="text-sm text-slate-600 mt-3 font-bold text-red-600 bg-red-50 p-3 rounded-md border border-red-200">
-                        CRITICAL: After the command completes successfully, you must <strong className="font-semibold">stop and restart your local development server</strong> for the new settings to load.
+                <div className="mt-10 p-6 bg-slate-900 rounded-2xl text-slate-200 border border-slate-700">
+                    <div className="flex items-center gap-2 mb-4">
+                        <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                        <h4 className="font-bold text-lg">Local Development Detected</h4>
+                    </div>
+                    <p className="text-sm text-slate-400 mb-4">To sync your local environment with the cloud KV store, run:</p>
+                    <div className="bg-black p-4 rounded-lg font-mono text-xs text-indigo-400 border border-slate-700 mb-4">
+                        vercel env pull .env.development.local
+                    </div>
+                    <p className="text-xs text-amber-400 font-semibold bg-amber-900/30 p-3 rounded-lg border border-amber-900/50">
+                        Reminder: Restart your local dev server after running this command.
                     </p>
                 </div>
             )}

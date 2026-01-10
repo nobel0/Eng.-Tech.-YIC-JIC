@@ -27,6 +27,10 @@ const App: React.FC = () => {
 
   // A robust error handler for fetch requests
   const handleFetchError = async (response: Response, context: string): Promise<void> => {
+    if (response.status === 404) {
+      throw new Error(`The ${context} endpoint was not found (404). This usually means the application is still deploying or you need to redeploy to enable the 'api/' directory.`);
+    }
+
     const errorText = await response.text();
     let errorMessage = `Error with ${context}. Status: ${response.status}.`;
     try {
@@ -56,14 +60,12 @@ const App: React.FC = () => {
 
       if (!statusData.kvStoreConnected || !statusData.adminPasswordSet) {
         // If critical configs are missing, go straight to the Admin Panel to fix them.
-        // No point in fetching data if the DB isn't connected.
         setStatus(AppStatus.ADMIN_PANEL);
         setIsLoading(false);
         return;
       }
 
       // 2. DB is connected, proceed to fetch data
-      // Fetch settings (theme, colleges, fields)
       const settingsRes = await fetch('/api/settings');
       if (!settingsRes.ok) {
           await handleFetchError(settingsRes, "settings fetch");
@@ -74,8 +76,6 @@ const App: React.FC = () => {
           setThemeConfig({ ...INITIAL_THEME_CONFIG, ...(settingsData.themeConfig || {}) });
           setColleges(settingsData.colleges || INITIAL_COLLEGES);
           setFormFields(settingsData.formFields || INITIAL_FORM_FIELDS);
-      } else {
-           console.log("No settings found in database, using initial defaults.");
       }
 
       // Fetch submissions
@@ -86,12 +86,10 @@ const App: React.FC = () => {
       const subsData = await submissionsRes.json();
       setSubmissions(subsData || []);
       
-      // 3. Decide where to go. Form is only usable if API key is set.
+      // 3. Decide where to go.
       if (!statusData.geminiApiKeySet) {
-          // Data is loaded, but API key is missing. Go to admin to fix.
           setStatus(AppStatus.ADMIN_PANEL);
       } else {
-          // Everything loaded and configured, set status to FORM
           setStatus(AppStatus.FORM);
       }
 
@@ -102,9 +100,8 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []); // Empty dependency array as it has no external dependencies.
+  }, []);
 
-  // Fetch all application data from the server on initial load.
   useEffect(() => {
     startupCheck();
   }, [startupCheck]);
@@ -156,13 +153,13 @@ const App: React.FC = () => {
                 console.error("Could not remove saved form data.", error);
             }
         } else {
-          setErrorMessage(`The AI matched the certificate to "${matchedName}", but this college is not configured correctly in the system. Please contact an administrator.`);
+          setErrorMessage(`The AI matched the certificate to "${matchedName}", but this college is not configured correctly in the system.`);
           setStatus(AppStatus.ERROR);
         }
       } else {
         const detailedMessage = analysisResult.extractedName
-            ? `We read "${analysisResult.extractedName}" from your certificate, but could not match it to a recognized college. Please ensure you have uploaded a clear certificate from one of the listed institutions.`
-            : 'We could not identify a recognized college from your certificate. Please ensure the uploaded file is clear, high-resolution, and from one of the listed institutions.';
+            ? `We read "${analysisResult.extractedName}" from your certificate, but could not match it to a recognized college. Please ensure you have uploaded a clear certificate.`
+            : 'We could not identify a recognized college from your certificate.';
 
         setErrorMessage(detailedMessage);
         setStatus(AppStatus.ERROR);
@@ -184,13 +181,12 @@ const App: React.FC = () => {
         if (!res.ok) {
            await handleFetchError(res, "settings save");
         }
-        // Update local state to match saved state
         setThemeConfig(newSettings.themeConfig);
         setColleges(newSettings.colleges);
         setFormFields(newSettings.formFields);
      } catch (error) {
         console.error("Failed to save settings:", error);
-        throw error; // Re-throw to be caught by the calling component
+        throw error;
      }
   };
 
@@ -203,7 +199,7 @@ const App: React.FC = () => {
         setSubmissions([]);
     } catch(error) {
         console.error("Failed to clear submissions:", error);
-        throw error; // Re-throw
+        throw error;
     }
   };
   
@@ -211,7 +207,6 @@ const App: React.FC = () => {
     if (isSetupComplete) {
       setStatus(AppStatus.FORM);
     } else {
-      // If setup is still not complete, return to the admin panel.
       setStatus(AppStatus.ADMIN_PANEL);
     }
     setMatchedCollege(null);
@@ -221,7 +216,6 @@ const App: React.FC = () => {
 
   const handleAdminClick = () => {
     if (status === AppStatus.ADMIN_PANEL) {
-      // Only allow returning to form if setup is complete
       if (isSetupComplete) {
         setStatus(AppStatus.FORM);
       }
@@ -257,8 +251,6 @@ const App: React.FC = () => {
   };
   
   const handleSetupComplete = () => {
-    // A simple page reload is the most reliable way to refetch all data and reset state
-    // after critical setup changes (like connecting a database).
     window.location.reload();
   };
   
@@ -293,12 +285,10 @@ const App: React.FC = () => {
       case AppStatus.ERROR:
         return <ErrorDisplay message={errorMessage} onBack={resetApp} themeConfig={themeConfig} extractedName={extractedCertificateName} />;
       default:
-        // Fallback to form, which will internally be replaced by admin panel if setup is needed.
         return <GraduateForm colleges={colleges} onSubmit={handleSubmit} formFields={formFields} themeConfig={themeConfig} />;
     }
   };
 
-  // Create a dynamic style tag to apply the primary color from the theme config
   const dynamicStyles = `
     :root {
       --primary-color: ${themeConfig.primaryColor};

@@ -15,21 +15,31 @@ const fileToGenerativePart = (base64: string, mimeType: string) => {
 
 export default async function handler(req: Request) {
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), { 
+      status: 405, 
+      headers: { 'Content-Type': 'application/json' } 
+    });
   }
 
-  if (!process.env.API_KEY) {
-    return new Response(JSON.stringify({ error: 'API_KEY not configured on server' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    return new Response(JSON.stringify({ error: 'API_KEY not configured on server' }), { 
+      status: 500, 
+      headers: { 'Content-Type': 'application/json' } 
+    });
   }
 
   try {
     const { certificateBase64, mimeType, collegeNames } = await req.json();
 
     if (!certificateBase64 || !mimeType || !Array.isArray(collegeNames)) {
-        return new Response(JSON.stringify({ error: 'Missing required parameters' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+        return new Response(JSON.stringify({ error: 'Missing required parameters' }), { 
+          status: 400, 
+          headers: { 'Content-Type': 'application/json' } 
+        });
     }
 
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey });
     const imagePart = fileToGenerativePart(certificateBase64, mimeType);
 
     const prompt = `
@@ -39,12 +49,11 @@ export default async function handler(req: Request) {
     ${collegeNames.map(name => `- ${name}`).join('\n')}
 
     Instructions:
-    1.  **Extract:** Carefully and literally extract the full, exact name of the educational institution from the certificate. This is the most important step.
-    2.  **Match:** Compare the extracted name to the "List of Allowed College Names". Find the best match from the list. Be flexible with word order (e.g., "College of Technology" should match "Technology College"). Your matching should be confident.
-    3.  **Respond in JSON:** Your entire response must be a single, valid JSON object following the specified schema. Do not include any other text or markdown formatting.
+    1.  **Extract:** Literally extract the educational institution name.
+    2.  **Match:** Find the closest match from the provided list.
+    3.  **Strict Output:** Return only valid JSON.
 
-    - If the image is unreadable, or you cannot confidently extract a name, return a JSON object where 'extractedName' is null.
-    - If you extract a name but it does not match any name in the provided list, return a JSON object where 'matchedName' is null.
+    Return null for values that cannot be identified.
     `;
 
     const responseSchema = {
@@ -52,12 +61,12 @@ export default async function handler(req: Request) {
         properties: {
             extractedName: {
                 type: Type.STRING,
-                description: 'The full, literal name of the college extracted directly from the certificate image.',
+                description: 'The institution name extracted from the certificate.',
                 nullable: true,
             },
             matchedName: {
                 type: Type.STRING,
-                description: 'The name from the provided list that best matches the extracted name. Should be null if there is no confident match.',
+                description: 'The matching name from the allowed list.',
                 nullable: true,
             },
         },
@@ -65,7 +74,7 @@ export default async function handler(req: Request) {
     };
     
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3-flash-preview',
         contents: { parts: [{ text: prompt }, imagePart] },
         config: {
             responseMimeType: 'application/json',
@@ -73,15 +82,22 @@ export default async function handler(req: Request) {
         }
     });
     
-    const responseText = (response.text ?? '{}').trim();
+    // Accessing .text property directly as per latest SDK guidelines
+    const responseText = response.text?.trim() ?? '{}';
     const result = JSON.parse(responseText);
 
-    return new Response(JSON.stringify(result), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify(result), { 
+      status: 200, 
+      headers: { 'Content-Type': 'application/json' } 
+    });
 
-  } catch (error)
-  {
+  } catch (error) {
     console.error('API /api/analyze error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred during analysis.';
-    return new Response(JSON.stringify({ error: errorMessage }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ 
+      error: error instanceof Error ? error.message : 'Analysis failed due to a server error' 
+    }), { 
+      status: 500, 
+      headers: { 'Content-Type': 'application/json' } 
+    });
   }
 }
